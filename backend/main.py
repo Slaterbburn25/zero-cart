@@ -179,7 +179,6 @@ class BuildCartPayload(BaseModel):
 def build_cart(payload: BuildCartPayload, db: Session = Depends(get_db)):
     """Dynamically hunts for prices and generates a math basket."""
     from logic.llm_scraper import get_live_deals
-    from logic.constraint_solver import optimize_basket
     import models
     
     user = db.query(models.User).filter(models.User.id == payload.user_id).first()

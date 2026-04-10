@@ -208,7 +208,10 @@ function UserProfileSetup({ profile, onSave, onCancel }) {
       ...formData,
       meal_types_wanted: selectedMeals.join(','),
       weekly_budget: noBudget ? null : formData.weekly_budget,
-      calorie_limit: noCalorie ? null : formData.calorie_limit
+      calorie_limit: noCalorie ? null : formData.calorie_limit,
+      primary_goal: formData.primary_goal || 'Balanced',
+      preferred_meats: formData.preferred_meats || 'Any',
+      hated_foods: formData.hated_foods || 'none'
     });
   };
 
@@ -274,13 +277,19 @@ function UserProfileSetup({ profile, onSave, onCancel }) {
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>Preferred Proteins/Meats</label>
-            <input type="text" value={formData.preferred_meats || 'Any'} onChange={e => setFormData({...formData, preferred_meats: e.target.value})} placeholder="e.g. Chicken, Beef, Fish, Any" style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)' }} />
+            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+              Preferred Meats & Proteins 
+              <span style={{display: 'block', fontSize: '0.7rem', color: 'var(--accent-base)'}}>(Just type a comma-separated list like: "Chicken, Mince, Tofu", or "Any")</span>
+            </label>
+            <input type="text" value={formData.preferred_meats || ''} onChange={e => setFormData({...formData, preferred_meats: e.target.value})} placeholder="e.g. Chicken, Beef, Fish, Any" style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)' }} />
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>Hated Foods (Never Include)</label>
-            <input type="text" value={formData.hated_foods || 'none'} onChange={e => setFormData({...formData, hated_foods: e.target.value})} placeholder="e.g. Mushrooms, Olives, Cilantro, None" style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)' }} />
+            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+              Hated Foods 
+              <span style={{display: 'block', fontSize: '0.7rem', color: 'var(--accent-base)'}}>(Foods to NEVER include, e.g. "Onions, Mushrooms", or "none")</span>
+            </label>
+            <input type="text" value={formData.hated_foods || ''} onChange={e => setFormData({...formData, hated_foods: e.target.value})} placeholder="e.g. Mushrooms, Olives, Cilantro, None" style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)' }} />
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
