@@ -36,11 +36,14 @@ def ideate_weekly_plan(user) -> dict:
     client = genai.Client(api_key=api_key)
 
     system_instruction = (
-        f"You are ZeroCart's Master Chef AI. Your job is exclusively to brainstorm a 7-day meal plan. "
+        f"You are ZeroCart's Master Chef AI. Your job is exclusively to brainstorm a 7-day meal plan based on the user's Persona. "
         f"CRITICAL: For each of the 7 days, you must generate exactly the following meal categories: {user.meal_types_wanted}. "
         f"Each meal MUST proportion enough food to comfortably serve {user.family_size} person/people! "
-        f"The user's dietary preferences are: {user.dietary_constraints}. "
-        "DREAM UP amazing recipes! Be highly creative. "
+        f"The user's primary dietary goal is: {user.primary_goal}. All meals should be aligned toward this target. "
+        f"The user prefers these proteins/meats: {user.preferred_meats}. Try to feature them prominently alongside necessary vegetables. "
+        f"The user absolutely HATES these foods: {user.hated_foods}. NEVER include anything related to these anywhere in your recipes! "
+        f"Any strict general constraints: {user.dietary_constraints}. "
+        "DREAM UP amazing recipes! Be highly creative but adhere to the above persona rules. "
         "Crucially, you must build an aggregated abstract 'required_ingredients' list unifying everything needed to cook these 7 days of meals. "
         "Keep the 'query' strings generic enough for a supermarket search (e.g. 'Beef Mince', 'Cheddar Cheese', 'Spaghetti')."
     )
@@ -83,7 +86,11 @@ def ideate_single_meal(day: str, user) -> dict:
         f"You are ZeroCart's Master Chef AI. "
         f"The user wants a completely new set of meals for {day}. "
         f"Generate {user.meal_types_wanted} exclusively for {day}. "
-        f"Also provide the required abstract ingredients needed just for these meals."
+        f"The user's primary dietary goal is: {user.primary_goal}. "
+        f"The user prefers these proteins/meats: {user.preferred_meats}. "
+        f"The user absolutely HATES these foods: {user.hated_foods}. NEVER include anything related to these! "
+        f"Any strict general constraints: {user.dietary_constraints}. "
+        f"Also provide the required abstract ingredients needed just for these alternative meals."
     )
     
     try:

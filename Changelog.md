@@ -2,6 +2,28 @@
 
 All code changes and development progress will be tracked here.
 
+## 2026-04-10: Agent Calibration & Link Hardening (AAA Polish)
+
+### Added
+- **Persona Expansion**: Upgraded the `User` SQLite schema securely via new `ALTER TABLE` migrations to track deeper psychological dimensions: `primary_goal`, `preferred_meats`, and `hated_foods`.
+- **UI Calibration Dashboard**: Expanded `App.jsx` React state to surface beautiful dropdowns and text inputs for setting specific persona rules (e.g. tracking "Vegan Explorer" or checking "I don't care" dynamically).
+- **Deep Clean**: Permanently wiped old iteration files (`migrate.py`, `test_ideation2.py`, `test_solver.py`, etc.) ensuring terminal and filesystem purity.
+
+### Changed
+- **Scraper Link Safeguard**: Updated `llm_scraper.py` System Instructions. The grounder is absolutely forbidden from hallucinative specific structural SKUs. If it cannot extract a perfect structural URL natively, it generates exact `search?query=...` strings to guarantee perfectly working user landing pages.
+- **Project Architectural Alignment**: Updated `ProjectPlan.md` and `Changelog.md` to reflect the newly reversed structural reality of ZeroCart (Ideation BEFORE Math execution).
+
+## 2026-04-10: Architecture Reverse (Ideation-First Pipeline)
+
+### Added
+- **Agentic Ideation System (`llm_ideation.py`)**: Rebuilt the recipe generator to execute *before* ANY grocery API access and before ANY OR-Tools logic. Gemini dynamically dreams up abstract culinary protocols explicitly chained to User Persona rules, extracting required grocery targets as generic query strings.
+- **State Array Control (`App.jsx`)**: Added the new reactive state hooks (`ideating` -> `review_meals` -> `building_cart` -> `review_cart`) so the User can authorize the AI's recipe choices *before* forcing the math execution pipeline.
+
+### Changed
+- **Scraper Target Arrays (`llm_scraper.py`)**: Deleted all hardcoded constants like `"Pork Shoulder"`. Re-wired the Scraper to ingest dynamic search payloads from the Ideator toolset, allowing limitless dietary scaling.
+- **API Router Destructuring (`main.py`)**: Split generation execution over `/api/v1/ideate`, `/api/v1/build_cart`, and `/api/v1/ideate_single_meal` arrays to accommodate the broken-up workflow logic.
+- **Meal Substitution Array**: `App.jsx` now securely replaces the correct single index of the AI recipes and dynamically appends the newly identified ingredients into the pipeline scope.
+
 ## 2026-04-09: Phase 1 Environment Setup & Core Logic
 
 ### Added

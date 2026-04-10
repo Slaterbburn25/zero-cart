@@ -92,6 +92,9 @@ class UserProfileUpdate(BaseModel):
     family_size: int
     meal_types_wanted: str
     preferred_store: str
+    primary_goal: str
+    preferred_meats: str
+    hated_foods: str
 
 @app.get("/api/v1/user/{user_id}")
 def get_user_profile(user_id: int, db: Session = Depends(get_db)):
@@ -101,18 +104,28 @@ def get_user_profile(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-@app.put("/api/v1/user/{user_id}")
-def update_user_profile(user_id: int, profile: UserProfileUpdate, db: Session = Depends(get_db)):
+@app.put("/api/v1/user/1")
+def update_user_profile(profile: UserProfileUpdate, db: Session = Depends(get_db)):
+    """Mock edge node profile persistence handling advanced personas."""
     import models
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = db.query(models.User).filter(models.User.id == 1).first()
     
+    # Instantiate singleton if empty
+    if not user:
+        user = models.User(
+            id=1, 
+            email="edge@zerocart.local"
+        )
+        db.add(user)
+        
     user.weekly_budget = profile.weekly_budget
     user.calorie_limit = profile.calorie_limit
     user.family_size = profile.family_size
     user.meal_types_wanted = profile.meal_types_wanted
     user.preferred_store = profile.preferred_store
+    user.primary_goal = profile.primary_goal
+    user.preferred_meats = profile.preferred_meats
+    user.hated_foods = profile.hated_foods
     
     db.commit()
     return {"status": "success", "user": user}

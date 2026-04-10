@@ -23,6 +23,9 @@ class User(Base):
     meal_types_wanted = Column(String, default="Dinner")
     preferred_store = Column(String, default="Tesco Live")
     dietary_constraints = Column(String, default="none")  # e.g., "vegan, high-protein"
+    primary_goal = Column(String, default="Balanced") # e.g. "Weight Loss", "Muscle Gain"
+    preferred_meats = Column(String, default="Any") # e.g. "Chicken, Fish", "None"
+    hated_foods = Column(String, default="none") # e.g. "Olives, Mushrooms"
     is_active = Column(Boolean, default=True)
 
 class VirtualFridge(Base):

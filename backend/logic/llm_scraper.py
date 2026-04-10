@@ -27,10 +27,11 @@ def get_live_deals(target_categories: List[dict] = None) -> dict:
         "for the following high-level dietary queries. "
         f"Queries: {', '.join([c['query'] for c in target_categories])}. "
         "For EACH query, find the top 1 or 2 most relevant results from Tesco. "
-        "Ensure you provide the EXACT numeric price and the absolute URL to the product. "
+        "Ensure you provide the EXACT numeric price and a functional URL to the product. "
+        "CRITICAL LINK RULE: Do NOT hallucinate product ID digits! If the search grounder cannot yield the literal accurate product URL, you MUST output a search query URL in this exact format: 'https://www.tesco.com/groceries/en-GB/search?query=YOUR_URL_ENCODED_QUERY'. "
         "Map the 'estimated_protein' and 'estimated_cals' heavily scaled up (e.g., multiply by 5 per pack) into your JSON output. "
         "IMPORTANT: You MUST return ONLY a raw JSON mapping precisely to this structure: "
-        '{"deals": [{"store_name": "Tesco Live", "sku": "LIVE_xxx", "item_name": "...", "price": 2.50, "price_per_unit": 1.50, "url": "...", "protein_grams": 150, "calories": 500}]}. '
+        '{"deals": [{"store_name": "Tesco Live", "sku": "LIVE_xxx", "item_name": "...", "price": 2.50, "price_per_unit": 1.50, "url": "https://www.tesco.com/groceries/en-GB/search?query=Chicken", "protein_grams": 150, "calories": 500}]}. '
         "You must FILL IN the template numeric values with the actual scraped prices and calculated protein/calories! Do NOT leave them as zeros. "
         "Do not include Markdown blocks like ```json, just the pure JSON."
     )

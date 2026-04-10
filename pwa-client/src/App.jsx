@@ -174,7 +174,10 @@ function UserProfileSetup({ profile, onSave, onCancel }) {
     meals_per_day: 3,
     weekly_budget: 90,
     calorie_limit: 2200,
-    preferred_store: 'Tesco Live'
+    preferred_store: 'Tesco Live',
+    primary_goal: 'Balanced',
+    preferred_meats: 'Any',
+    hated_foods: 'none'
   });
 
   const initialMeals = profile?.meal_types_wanted ? profile.meal_types_wanted.split(',') : ['Dinner'];
@@ -210,9 +213,9 @@ function UserProfileSetup({ profile, onSave, onCancel }) {
   };
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-      <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem', borderRadius: '16px' }}>
-        <h2 style={{ marginBottom: '1.5rem', textAlign: 'center', color: 'var(--text-main)', fontSize: '1.3rem' }}>Personalize Agent</h2>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem', overflowY: 'auto' }}>
+      <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem', borderRadius: '16px', maxHeight: '90vh', overflowY: 'auto' }}>
+        <h2 style={{ marginBottom: '1.5rem', textAlign: 'center', color: 'var(--text-main)', fontSize: '1.3rem' }}>Agent Calibration</h2>
         
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
@@ -247,7 +250,7 @@ function UserProfileSetup({ profile, onSave, onCancel }) {
             <input type="number" step="1.00" value={formData.weekly_budget} disabled={noBudget} onChange={e => setFormData({...formData, weekly_budget: parseFloat(e.target.value)})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)', opacity: noBudget ? 0.3 : 1 }} />
           </div>
 
-          <div>
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.5rem' }}>
              <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
                 Daily Caloric Target
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--accent-base)'}}>
@@ -256,6 +259,28 @@ function UserProfileSetup({ profile, onSave, onCancel }) {
                 </div>
              </label>
              <input type="number" step="50" value={formData.calorie_limit} disabled={noCalorie} onChange={e => setFormData({...formData, calorie_limit: parseInt(e.target.value)})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)', opacity: noCalorie ? 0.3 : 1 }} />
+          </div>
+          
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>Primary Goal</label>
+            <select value={formData.primary_goal || 'Balanced'} onChange={e => setFormData({...formData, primary_goal: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)' }}>
+               <option value="Balanced">Balanced / Normal</option>
+               <option value="Weight Loss">Weight Loss</option>
+               <option value="Muscle Gain (High Protein)">Muscle Gain (High Protein)</option>
+               <option value="Cheap & Easy">Cheap & Easy</option>
+               <option value="Heart Healthy">Heart Healthy</option>
+               <option value="Vegan/Vegetarian Explorer">Vegan/Vegetarian Explorer</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>Preferred Proteins/Meats</label>
+            <input type="text" value={formData.preferred_meats || 'Any'} onChange={e => setFormData({...formData, preferred_meats: e.target.value})} placeholder="e.g. Chicken, Beef, Fish, Any" style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)' }} />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>Hated Foods (Never Include)</label>
+            <input type="text" value={formData.hated_foods || 'none'} onChange={e => setFormData({...formData, hated_foods: e.target.value})} placeholder="e.g. Mushrooms, Olives, Cilantro, None" style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)' }} />
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
