@@ -339,7 +339,13 @@ function App() {
                 <div style={{ padding: '1rem', background: 'var(--bg-color)', maxHeight: '200px', overflowY: 'auto' }}>
                    {basketItems.map((item, idx) => (
                       <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '0.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.2rem' }}>
-                         <span style={{ width: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.quantity}x {item.item_name}</span>
+                         <span style={{ width: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.quantity}x {item.url ? (
+                               <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-base)', textDecoration: 'none', fontWeight: 500 }}>
+                                  {item.item_name}
+                               </a>
+                            ) : item.item_name}
+                         </span>
                          <span style={{ fontWeight: 600 }}>£{item.selected_price.toFixed(2)}</span>
                       </div>
                    ))}

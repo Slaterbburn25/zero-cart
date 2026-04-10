@@ -41,6 +41,7 @@ class LocalDeal(Base):
     item_name = Column(String)
     price = Column(Float)
     price_per_unit = Column(Float)  # e.g., cost per 100g
+    item_url = Column(String, default="")
     protein_grams = Column(Float, default=0.0)  # Needed by Google OR-Tools
     calories = Column(Integer, default=0)
 

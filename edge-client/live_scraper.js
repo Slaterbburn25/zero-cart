@@ -84,8 +84,8 @@ async function runScraper() {
                         }
                         parent = parent.parentElement;
                     }
-                    return { name: a.innerText.trim(), price: priceStr ? parseFloat(priceStr) : null };
-                }).filter(item => item.price !== null);
+                    return { name: a.innerText.trim(), price: priceStr ? parseFloat(priceStr) : null, url: a.href };
+                }).filter(item => item.price !== null && item.url);
             });
 
             // Deduplicate items
@@ -104,6 +104,7 @@ async function runScraper() {
                         item_name: item.name,
                         price: item.price,
                         price_per_unit: parseFloat((item.price * 0.8).toFixed(2)), // Approx
+                        item_url: item.url || '',
                         protein_grams: cat.estimated_protein * 5, 
                         calories: cat.estimated_cals * 5
                     });

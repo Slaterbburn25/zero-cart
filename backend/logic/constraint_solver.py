@@ -68,6 +68,7 @@ def optimize_basket(db: Session, user_id: int, budget: float, min_protein: float
                 basket.append({
                     "sku": deal.sku,
                     "item_name": deal.item_name,
+                    "url": deal.item_url,
                     "quantity": int(qty),
                     "selected_price": round(qty * deal.price, 2)
                 })
