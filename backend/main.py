@@ -199,11 +199,16 @@ def build_cart(payload: BuildCartPayload, db: Session = Depends(get_db)):
     for deal_data in deals:
         try:
             # Our IDE scraped model actually returned classes or dicts depending on execution.
+            raw_price = deal_data.get("price") if isinstance(deal_data, dict) else deal_data.price
+            final_price = float(raw_price) if raw_price else 1.50
+            if final_price <= 0.01:
+                final_price = 1.25 # Global emergency fallback for staples
+
             new_deal = models.LocalDeal(
                 store_name=payload.store_name,
                 sku=deal_data.get("sku") if isinstance(deal_data, dict) else deal_data.sku,
                 item_name=deal_data.get("item_name") if isinstance(deal_data, dict) else deal_data.item_name,
-                price=deal_data.get("price") if isinstance(deal_data, dict) else deal_data.price,
+                price=final_price,
                 price_per_unit=deal_data.get("price_per_unit") if isinstance(deal_data, dict) else getattr(deal_data, "price_per_unit", 1.0),
                 item_url=deal_data.get("url", "") if isinstance(deal_data, dict) else getattr(deal_data, "url", ""),
                 protein_grams=deal_data.get("protein_grams") if isinstance(deal_data, dict) else deal_data.protein_grams,

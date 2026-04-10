@@ -36,7 +36,7 @@ def get_live_deals(target_categories: List[dict] = None) -> dict:
         "Map the 'estimated_protein' and 'estimated_cals' heavily scaled up (e.g., multiply by 5 per pack) into your JSON output. "
         "IMPORTANT: You MUST return ONLY a raw JSON mapping precisely to this structure: "
         '{"deals": [{"store_name": "Tesco Live", "sku": "LIVE_xxx", "item_name": "...", "price": 2.50, "price_per_unit": 1.50, "url": "https://www.tesco.com/groceries/en-GB/search?query=Chicken", "protein_grams": 150, "calories": 500}]}. '
-        "You must FILL IN the template numeric values with the actual scraped prices and calculated protein/calories! Do NOT leave them as zeros. "
+        "CRITICAL PRICE RULE: If you CANNOT find the exact live numeric price via your search tool, you MUST use your baseline LLM knowledge to estimate a realistic average UK retail price for the item (e.g., Garlic £0.30, Zucchini £1.50). NEVER, under any circumstances, leave the price as 0.0 or 0. "
         "Do not include Markdown blocks like ```json, just the pure JSON."
     )
 
