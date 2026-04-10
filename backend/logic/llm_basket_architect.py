@@ -19,11 +19,11 @@ def allocate_basket(user, scraped_deals: List[Dict]) -> dict:
     Uses Gemini to apply human common-sense rationing and volume logic 
     to a list of scraped product deals, bypassing dumb mathematical limits.
     """
+    env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+    from dotenv import load_dotenv
+    load_dotenv(env_path)
+    
     api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        from dotenv import load_dotenv
-        load_dotenv()
-        api_key = os.environ.get("GEMINI_API_KEY")
         
     client = genai.Client(api_key=api_key)
 

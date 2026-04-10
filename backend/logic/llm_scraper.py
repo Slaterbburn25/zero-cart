@@ -14,6 +14,10 @@ def get_live_deals(target_categories: List[dict] = None) -> dict:
     if not target_categories:
         return {"status": "error", "message": "No target categories provided to search for."}
         
+    env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+    from dotenv import load_dotenv
+    load_dotenv(env_path)
+    
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return {"status": "error", "message": "GEMINI_API_KEY not configured for Web Scraper."}
