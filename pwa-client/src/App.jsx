@@ -130,12 +130,12 @@ function AgentTracker({ phase, store }) {
     const storeName = store === 'Tesco Live' ? 'Tesco' : 'ASDA';
     
     const executionLogs = phase === 'sync' ? [
-      `Crawling ${storeName} for best price...`,
-      "Found Chicken Breast @ £6.99",
-      "Found Free Range Eggs @ £2.40",
-      `Scanning ${storeName} Rice & Grains...`,
-      "Found Basmati Rice @ £1.85",
-      "Updating Virtual Fridge..."
+      "Initializing Google Search Agent...",
+      "Bypassing Cloudflare via native Web Index...",
+      "Executing Live Web Queries for Proteins...",
+      "Executing Live Web Queries for Carbs...",
+      "Aggregating Tesco specific prices...",
+      "Resolving dynamic product URLs..."
     ] : [
       "Initializing AI Math Engine...",
       "Injecting £90 strict constraint...",
