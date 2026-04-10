@@ -122,55 +122,49 @@ function MealCard({ meal, index, handleRefreshSingleMeal, basketDataItems }) {
   );
 }
 
-function AgentTracker({ phase }) {
-  const [logs, setLogs] = useState([]);
+function AgentTracker({ phase, store }) {
+  const [currentMessage, setCurrentMessage] = useState('Initializing agent...');
   
   useEffect(() => {
     let timeouts = [];
+    const storeName = store === 'Tesco Live' ? 'Tesco' : 'ASDA';
+    
     const executionLogs = phase === 'sync' ? [
-      "Securing local Chrome instance...",
-      "Injecting stealth plugins...",
-      "Navigating to tesco.com...",
-      "Bypassing headless bot detection...",
-      "Querying Category: Chicken Breast...",
-      "Extracting top 3 price metrics...",
-      "Querying Category: Rice & Grains...",
-      "Querying Category: Eggs & Dairy...",
-      "Parsing biological macronutrients...",
-      "Dumping payload to SQLite database..."
+      `Crawling ${storeName} for best price...`,
+      "Found Chicken Breast @ £6.99",
+      "Found Free Range Eggs @ £2.40",
+      `Scanning ${storeName} Rice & Grains...`,
+      "Found Basmati Rice @ £1.85",
+      "Updating Virtual Fridge..."
     ] : [
-      "Database sync complete.",
-      "Initializing Google OR-Tools...",
+      "Initializing AI Math Engine...",
       "Injecting £90 strict constraint...",
-      "Injecting 400g minimum protein constraint...",
-      "Calculating integer matrix...",
-      "Optimum basket found. Cost minimized.",
-      "Connecting to Vertex AI (Gemini Flash)...",
-      "Generating 7-day culinary algorithms...",
-      "Enforcing strict basket limits...",
+      "Calculating optimum macros...",
+      "Basket found. Cost minimized.",
+      "Connecting to Gemini Intelligence...",
+      "Generating 7 culinary plans...",
       "Finalizing protocol..."
     ];
 
-    let currentLogs = [];
     executionLogs.forEach((msg, idx) => {
-      const waitTime = 500 + (Math.random() * 800) + (idx * 1500);
+      const waitTime = (idx * 2500) + 500;
       const timer = setTimeout(() => {
-        currentLogs = [...currentLogs, `[SYS] ${msg}`];
-        setLogs(currentLogs);
+        setCurrentMessage(msg);
       }, waitTime);
       timeouts.push(timer);
     });
 
     return () => timeouts.forEach(clearTimeout);
-  }, [phase]);
+  }, [phase, store]);
 
   return (
-    <div style={{ background: '#111', color: '#00FF41', fontFamily: 'monospace', padding: '1rem', borderRadius: '8px', fontSize: '0.8rem', height: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.5)', textAlign: 'left', width: '100%', maxWidth: '400px', margin: '0 auto 1.5rem' }}>
-      <div style={{ color: '#fff', borderBottom: '1px solid #333', paddingBottom: '0.2rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>AGENT TERMINAL</div>
-      {logs.map((log, i) => (
-        <div key={i} style={{ animation: 'fadeIn 0.2s ease-out' }}>{log}</div>
-      ))}
-      <div className="blinking-cursor" style={{ width: '8px', height: '14px', background: '#00FF41', marginTop: '0.2rem', animation: 'blink 1s infinite' }}></div>
+    <div style={{ textAlign: 'center', margin: '0.5rem 0', minHeight: '30px' }}>
+      <div 
+         key={currentMessage} 
+         style={{ color: 'var(--text-main)', fontSize: '1.05rem', fontWeight: 500, animation: 'fadeIn 0.5s ease' }}
+      >
+        {currentMessage}
+      </div>
     </div>
   );
 }
@@ -307,14 +301,14 @@ function App() {
 
       {basketState === 'syncing' && (
         <div className="flex-center" style={{ flexDirection: 'column', gap: '0.5rem', padding: '1rem 0' }}>
-          <AgentTracker phase="sync" />
+          <AgentTracker phase="sync" store={selectedStore} />
           <div className="loader"></div>
         </div>
       )}
 
       {basketState === 'building' && (
         <div className="flex-center" style={{ flexDirection: 'column', gap: '0.5rem', padding: '1rem 0' }}>
-          <AgentTracker phase="build" />
+          <AgentTracker phase="build" store={selectedStore} />
           <div className="loader"></div>
         </div>
       )}
