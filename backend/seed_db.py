@@ -51,7 +51,7 @@ def seed_database():
         weekly_budget=90.0,
         calorie_limit=2200,
         family_size=1,
-        meals_per_day=3,
+        meal_types_wanted="Dinner",
         preferred_store="Tesco Live",
         dietary_constraints="none"
     )

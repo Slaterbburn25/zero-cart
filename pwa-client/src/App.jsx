@@ -177,13 +177,33 @@ function UserProfileSetup({ profile, onSave, onCancel }) {
     preferred_store: 'Tesco Live'
   });
 
+  const initialMeals = profile?.meal_types_wanted ? profile.meal_types_wanted.split(',') : ['Dinner'];
+  const [mealSelection, setMealSelection] = useState({
+     Breakfast: initialMeals.includes('Breakfast'),
+     Lunch: initialMeals.includes('Lunch'),
+     Dinner: initialMeals.includes('Dinner')
+  });
+
+  const handleMealToggle = (meal) => {
+     setMealSelection(prev => ({...prev, [meal]: !prev[meal]}));
+  };
+
   const [noBudget, setNoBudget] = useState(profile?.weekly_budget === null);
   const [noCalorie, setNoCalorie] = useState(profile?.calorie_limit === null);
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Validate at least one meal is selected
+    const selectedMeals = Object.entries(mealSelection).filter(([k, v]) => v).map(([k]) => k);
+    if (selectedMeals.length === 0) {
+       alert("Please select at least one meal type!");
+       return;
+    }
+
     onSave({
       ...formData,
+      meal_types_wanted: selectedMeals.join(','),
       weekly_budget: noBudget ? null : formData.weekly_budget,
       calorie_limit: noCalorie ? null : formData.calorie_limit
     });
@@ -201,8 +221,19 @@ function UserProfileSetup({ profile, onSave, onCancel }) {
           </div>
 
           <div>
-             <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>Meals Per Day</label>
-             <input type="number" min="1" max="6" value={formData.meals_per_day} onChange={e => setFormData({...formData, meals_per_day: parseInt(e.target.value)})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)' }} required />
+             <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>Meals to Automate</label>
+             <div style={{ display: 'flex', gap: '1rem', background: 'var(--bg-color)', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                {['Breakfast', 'Lunch', 'Dinner'].map(meal => (
+                   <label key={meal} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem', color: 'var(--text-main)', cursor: 'pointer' }}>
+                      <input 
+                         type="checkbox" 
+                         checked={mealSelection[meal]} 
+                         onChange={() => handleMealToggle(meal)}
+                      />
+                      {meal}
+                   </label>
+                ))}
+             </div>
           </div>
 
           <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>

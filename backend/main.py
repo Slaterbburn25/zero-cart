@@ -132,7 +132,7 @@ class UserProfileUpdate(BaseModel):
     weekly_budget: float | None
     calorie_limit: int | None
     family_size: int
-    meals_per_day: int
+    meal_types_wanted: str
     preferred_store: str
 
 @app.get("/api/v1/user/{user_id}")
@@ -153,7 +153,7 @@ def update_user_profile(user_id: int, profile: UserProfileUpdate, db: Session = 
     user.weekly_budget = profile.weekly_budget
     user.calorie_limit = profile.calorie_limit
     user.family_size = profile.family_size
-    user.meals_per_day = profile.meals_per_day
+    user.meal_types_wanted = profile.meal_types_wanted
     user.preferred_store = profile.preferred_store
     
     db.commit()

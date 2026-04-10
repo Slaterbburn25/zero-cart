@@ -30,7 +30,9 @@ def optimize_basket(db: Session, user, store_name: str = "Tesco Blackburn"):
     
     # Heuristically cap maximum distinct items purchased so the bot doesn't buy 5,000 chickens
     # if the user disables budget and calorie limits ("I don't care" option).
-    safe_cap_quantity = user.family_size * user.meals_per_day * 2
+    # We parse the comma-separated meal array to dynamically bound the logic.
+    number_of_meals_daily = len(user.meal_types_wanted.split(',')) if user.meal_types_wanted else 1
+    safe_cap_quantity = user.family_size * number_of_meals_daily * 2
 
     for deal in all_deals:
         # Constraint C: If they already have it in the fridge, skip buying more! (Waste Prevention)
@@ -97,7 +99,7 @@ def optimize_basket(db: Session, user, store_name: str = "Tesco Blackburn"):
             "summary": {
                 "total_cost": round(total_cost, 2),
                 "total_protein_grams": round(total_protein, 2),
-                "budget_utilized": f"{round((total_cost/budget)*100, 1)}%"
+                "budget_utilized": f"{round((total_cost/user.weekly_budget)*100, 1)}%" if user.weekly_budget else "N/A"
             }
         }
     else:

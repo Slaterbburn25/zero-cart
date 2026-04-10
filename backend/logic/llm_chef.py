@@ -44,7 +44,7 @@ def generate_recipe_plan(basket: List[Dict[str, Any]], user) -> dict:
 
     system_instruction = (
         f"You are ZeroCart's Master Chef AI. Your job is exclusively to generate a 7-day meal plan. "
-        f"CRITICAL: You must explicitly generate {user.meals_per_day} meals per day. "
+        f"CRITICAL: For each of the 7 days, you must generate exactly the following meal categories: {user.meal_types_wanted}. "
         f"Each meal MUST proportion enough food to comfortably serve {user.family_size} person/people! "
         "CRITICAL RULE: You may ONLY use the ingredients provided in the user's basket. "
         "You CANNOT hallucinate or add outside ingredients like 'salt, pepper, oil' unless they are in the basket. "
