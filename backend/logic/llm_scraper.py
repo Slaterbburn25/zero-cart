@@ -5,39 +5,15 @@ from google.genai import types
 from pydantic import BaseModel, Field
 from typing import List
 
-# Same targeted commodities we had in the edge client
-TARGET_CATEGORIES = [
-    {"query": "Chicken Breast", "estimated_protein": 30, "estimated_cals": 165},
-    {"query": "Eggs", "estimated_protein": 6, "estimated_cals": 70},
-    {"query": "Broccoli", "estimated_protein": 3, "estimated_cals": 34},
-    {"query": "Rice", "estimated_protein": 2.7, "estimated_cals": 130},
-    {"query": "Beans", "estimated_protein": 5, "estimated_cals": 80}
-]
-
-class Deal(BaseModel):
-    store_name: str = Field(description="Must always be 'Tesco Live'")
-    sku: str = Field(description="Generate a unique short string ID starting with LIVE_")
-    item_name: str = Field(description="Exact item name found in the search result")
-    price: float = Field(description="Decimal price of the item extracted from the search")
-    price_per_unit: float = Field(description="Calculate approx 80% of the price if unknown")
-    url: str = Field(description="The exact tesco product URL link")
-    protein_grams: float = Field(description="Total protein grams per package estimate")
-    calories: int = Field(description="Total calories per package estimate")
-
-class ScrapedDeals(BaseModel):
-    deals: List[Deal]
-
-from dotenv import load_dotenv
-
-# Provide an absolute safety net for finding the local .env
-env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
-load_dotenv(env_path)
-
-def get_live_deals() -> dict:
+def get_live_deals(target_categories: List[dict] = None) -> dict:
     """
     Executes an LLM-Agentic web scrape targeting Tesco.com using Google Search.
     Instantly bypasses all Cloudflare bot-protections natively.
+    Returns the deals found for the provided abstract target categories.
     """
+    if not target_categories:
+        return {"status": "error", "message": "No target categories provided to search for."}
+        
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return {"status": "error", "message": "GEMINI_API_KEY not configured for Web Scraper."}
@@ -49,7 +25,7 @@ def get_live_deals() -> dict:
         "You are an Advanced Agentic Grocery Price Data Scraper. "
         "Your task is to use the Google Search tool to find the exact current prices on 'www.tesco.com/groceries/en-GB/products' "
         "for the following high-level dietary queries. "
-        f"Queries: {', '.join([c['query'] for c in TARGET_CATEGORIES])}. "
+        f"Queries: {', '.join([c['query'] for c in target_categories])}. "
         "For EACH query, find the top 1 or 2 most relevant results from Tesco. "
         "Ensure you provide the EXACT numeric price and the absolute URL to the product. "
         "Map the 'estimated_protein' and 'estimated_cals' heavily scaled up (e.g., multiply by 5 per pack) into your JSON output. "
@@ -86,7 +62,7 @@ def get_live_deals() -> dict:
         print(f"Agentic Scraper Error: {e}")
         # Graceful absolute fallback incase Gemini routing is entirely unavailable without internet
         fallback_deals = []
-        for cat in TARGET_CATEGORIES:
+        for cat in target_categories:
             fallback_deals.append({
                 "store_name": "Tesco Live",
                 "sku": "LIVE_FALLBACK_" + str(hash(cat['query']))[-5:],

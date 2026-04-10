@@ -323,38 +323,65 @@ function App() {
     }
   };
 
-  const handleSyncAndBuild = async () => {
-    setBasketState('syncing');
+  const [targetCategories, setTargetCategories] = useState([]);
+
+  const handleIdeateMeals = async () => {
+    setBasketState('ideating');
     
     try {
-      if (selectedStore === 'Tesco Live') {
-          const syncRes = await fetch(`http://${window.location.hostname}:8000/api/v1/sync_live_prices`, { method: 'POST' });
-          if (!syncRes.ok) throw new Error("Scraper Failed");
-      }
-      
-      setBasketState('building');
-      const response = await fetch(`http://${window.location.hostname}:8000/api/v1/generate_plan?user_id=1&store_name=${encodeURIComponent(selectedStore)}`, {
+      const response = await fetch(`http://${window.location.hostname}:8000/api/v1/ideate?user_id=1`, {
         method: 'POST'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMealPlan(data.meals || []);
+        setTargetCategories(data.required_ingredients || []);
+        setBasketState('review_meals');
+      } else {
+        const errorData = await response.json();
+        alert("Error ideating meals: " + errorData.detail);
+        setBasketState('idle');
+      }
+    } catch (err) {
+      alert("System Error: Check backend node is running.");
+      setBasketState('idle');
+    }
+  };
+
+  const handleBuildCart = async () => {
+    setBasketState('building');
+    
+    try {
+      const payload = {
+        user_id: 1,
+        store_name: selectedStore,
+        target_categories: targetCategories
+      };
+
+      const response = await fetch(`http://${window.location.hostname}:8000/api/v1/build_cart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
       
       if (response.ok) {
         const data = await response.json();
         setBasketSummary(data.basket_summary);
         setBasketItems(data.basket_items || []);
-        setMealPlan(data.meal_plan?.meals || []);
-        setBasketState('review');
+        setBasketState('review_cart');
         
         if (notificationsEnabled) {
-          new Notification('Basket Ready!', { body: `Your ${selectedStore} weekly shop and meals are ready.` });
+          new Notification('Basket Ready!', { body: `Your ${selectedStore} weekly shop is mathematically optimized and ready.` });
         }
       } else {
         const errorData = await response.json();
         alert("Error generating cart: " + errorData.detail);
-        setBasketState('idle');
+        setBasketState('review_meals'); // fallback to meals
       }
     } catch (err) {
       alert("System Error: Check backend/edge node is running.");
-      setBasketState('idle');
+      setBasketState('review_meals');
     }
   };
 
@@ -375,13 +402,20 @@ function App() {
 
   const handleRefreshSingleMeal = async (day) => {
     try {
-      const response = await fetch(`http://${window.location.hostname}:8000/api/v1/generate_single_meal?day=${encodeURIComponent(day)}&user_id=1&store_name=${encodeURIComponent(selectedStore)}`, {
+      const response = await fetch(`http://${window.location.hostname}:8000/api/v1/ideate_single_meal?day=${encodeURIComponent(day)}&user_id=1`, {
         method: 'POST'
       });
       if (response.ok) {
         const data = await response.json();
-        if (data.status === "success") {
-           setMealPlan(prev => prev.map(m => m.day === day ? data.meal : m));
+        // data contains meals and required_ingredients
+        setMealPlan(prev => prev.map(m => m.day === day ? (data.meals && data.meals.length > 0 ? data.meals[0] : m) : m));
+        
+        // Append new abstract ingredients to the hunt list so we buy them
+        if (data.required_ingredients && data.required_ingredients.length > 0) {
+           setTargetCategories(prev => {
+               const newItems = data.required_ingredients.filter(ni => !prev.some(pi => pi.query.toLowerCase() === ni.query.toLowerCase()));
+               return [...prev, ...newItems];
+           });
         }
       } else {
          alert("Failed to swap meal. API Error.");
@@ -408,23 +442,30 @@ function App() {
          />
       )}
 
-      <div style={{ position: 'relative', textAlign: 'center', marginBottom: '1.5rem' }}>
-        <h1 className="title">ZeroCart</h1>
-        <p className="subtitle">Autonomous Grocery Restocking</p>
-        {basketState === 'idle' && (
-           <button 
-             onClick={() => setShowProfile(true)}
-             style={{ position: 'absolute', right: 0, top: '5px', background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}
-             title="Personalize Agent"
-           >
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
-                 <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: '2px solid var(--accent-base)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontSize: '0.7rem' }}>⚙️</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+         <div style={{ flex: 1 }}></div>
+         
+         <div style={{ textAlign: 'center', flex: 2 }}>
+           <h1 className="title">ZeroCart</h1>
+           <p className="subtitle">Autonomous Grocery Restocking</p>
+         </div>
+         
+         <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingTop: '5px' }}>
+           {basketState === 'idle' && (
+              <button 
+                onClick={() => setShowProfile(true)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}
+                title="Personalize Agent"
+              >
+                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: '2px solid var(--accent-base)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                       <span style={{ fontSize: '0.7rem' }}>⚙️</span>
+                    </div>
+                    <span style={{ fontSize: '0.65rem' }}>Profile</span>
                  </div>
-                 <span style={{ fontSize: '0.65rem' }}>Profile</span>
-              </div>
-           </button>
-        )}
+              </button>
+           )}
+         </div>
       </div>
 
       {basketState === 'idle' && (
@@ -445,16 +486,47 @@ function App() {
       )}
 
       {basketState === 'idle' && (
-        <button className="btn-primary" onClick={handleSyncAndBuild}>
-          <ShoppingBag size={18} /> Sync & Plan Week
+        <button className="btn-primary" onClick={handleIdeateMeals}>
+          <ShoppingBag size={18} /> Ideate Meal Plan
         </button>
       )}
 
-      {basketState === 'syncing' && (
+      {basketState === 'ideating' && (
         <div className="flex-center" style={{ flexDirection: 'column', gap: '0.5rem', padding: '1rem 0' }}>
-          <AgentTracker phase="sync" store={selectedStore} />
+          <div style={{ color: 'var(--accent-base)', fontWeight: 600 }}>Gemini is designing your meals...</div>
           <div className="loader"></div>
         </div>
+      )}
+
+      {basketState === 'review_meals' && (
+         <div>
+            {mealPlan && mealPlan.length > 0 && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dim)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  AI Generated Custom Menu
+                </div>
+                <div className="meal-carousel">
+                  {mealPlan.map((meal, idx) => (
+                    <MealCard 
+                       key={idx} 
+                       meal={meal} 
+                       index={idx}
+                       handleRefreshSingleMeal={handleRefreshSingleMeal}
+                       basketDataItems={[]} 
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <button className="btn-success" onClick={handleBuildCart}>
+              Looks Good! Hunt Prices & Build Cart <ChevronRight size={18} />
+            </button>
+            
+            <button style={{ marginTop: '0.75rem', background: 'transparent', color: 'var(--text-dim)', fontSize: '0.9rem', padding: '0.5rem' }} onClick={() => setBasketState('idle')}>
+              Cancel & Reset
+            </button>
+         </div>
       )}
 
       {basketState === 'building' && (
@@ -464,7 +536,7 @@ function App() {
         </div>
       )}
 
-      {basketState === 'review' && basketSummary && (
+      {basketState === 'review_cart' && basketSummary && (
         <div>
           <div className="stat-grid" style={{ marginBottom: '1rem' }}>
             <div className="stat-box">
@@ -503,32 +575,13 @@ function App() {
                 </div>
              )}
           </div>
-
-          {mealPlan && mealPlan.length > 0 && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dim)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                AI Generated Visual Protocol
-              </div>
-              <div className="meal-carousel">
-                {mealPlan.map((meal, idx) => (
-                  <MealCard 
-                     key={idx} 
-                     meal={meal} 
-                     index={idx}
-                     handleRefreshSingleMeal={handleRefreshSingleMeal}
-                     basketDataItems={basketItems}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
           
           <button className="btn-success" onClick={handleApprove}>
-            Approve & Launch Injector <ChevronRight size={18} />
+            Approve Cart & Launch Injector <ChevronRight size={18} />
           </button>
           
-          <button style={{ marginTop: '0.75rem', background: 'transparent', color: 'var(--text-dim)', fontSize: '0.9rem', padding: '0.5rem' }} onClick={() => setBasketState('idle')}>
-            Cancel & Reset
+          <button style={{ marginTop: '0.75rem', background: 'transparent', color: 'var(--text-dim)', fontSize: '0.9rem', padding: '0.5rem' }} onClick={() => setBasketState('review_meals')}>
+            Cancel & Go Back to Meals
           </button>
         </div>
       )}
