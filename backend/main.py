@@ -134,7 +134,7 @@ def ideate_meals(user_id: int, db: Session = Depends(get_db)):
     ideation_result = ideate_weekly_plan(user=user)
     
     if ideation_result.get("status") != "success":
-        raise HTTPException(status_code=500, detail="Gemini failed to creatively ideate recipes.")
+        raise HTTPException(status_code=500, detail=f"Gemini failed: {ideation_result.get('message')}")
         
     return ideation_result.get("plan")
 

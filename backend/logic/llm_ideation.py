@@ -4,6 +4,10 @@ from typing import List
 from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
+from dotenv import load_dotenv
+
+env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+load_dotenv(env_path)
 
 class RequiredIngredient(BaseModel):
     query: str = Field(description="Generic search term like 'Pasta', 'Chicken Breast', etc")
@@ -55,7 +59,13 @@ def ideate_weekly_plan(user) -> dict:
             ),
         )
         
-        parsed = json.loads(response.text)
+        data = response.text
+        if "```json" in data:
+            data = data.split("```json")[1].split("```")[0].strip()
+        elif "```" in data:
+            data = data.split("```")[1].strip()
+            
+        parsed = json.loads(data)
         return {"status": "success", "plan": parsed}
         
     except Exception as e:
