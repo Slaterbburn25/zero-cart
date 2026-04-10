@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, ChevronRight, CheckCircle2, BellRing } from 'lucide-react';
+import { ShoppingBag, ChevronRight, CheckCircle2, BellRing, RefreshCw, Clock, Scale } from 'lucide-react';
 import './index.css';
 
 function App() {
-  const [basketState, setBasketState] = useState('idle'); // 'idle' | 'building' | 'review' | 'approving' | 'done'
+  const [basketState, setBasketState] = useState('idle'); // 'idle' | 'syncing' | 'building' | 'review' | 'approving' | 'done'
   const [basketData, setBasketData] = useState(null);
   const [mealPlan, setMealPlan] = useState(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [selectedStore, setSelectedStore] = useState('Tesco Blackburn');
+  const [selectedStore, setSelectedStore] = useState('Tesco Live');
+  const [loadingMealDay, setLoadingMealDay] = useState(null);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'granted') {
@@ -25,10 +26,17 @@ function App() {
     }
   };
 
-  const handleBuildCart = async () => {
-    setBasketState('building');
+  const handleSyncAndBuild = async () => {
+    setBasketState('syncing');
     
+    // Phase 1: Fire Edge Scraper
     try {
+      if (selectedStore === 'Tesco Live') {
+          const syncRes = await fetch(`http://${window.location.hostname}:8000/api/v1/sync_live_prices`, { method: 'POST' });
+          if (!syncRes.ok) throw new Error("Scraper Failed");
+      }
+      
+      setBasketState('building');
       const response = await fetch(`http://${window.location.hostname}:8000/api/v1/generate_plan?user_id=1&store_name=${encodeURIComponent(selectedStore)}`, {
         method: 'POST'
       });
@@ -48,7 +56,7 @@ function App() {
         setBasketState('idle');
       }
     } catch (err) {
-      alert("Error connecting to backend");
+      alert("System Error: Check backend/edge node is running.");
       setBasketState('idle');
     }
   };
@@ -69,6 +77,27 @@ function App() {
     }
   };
 
+  const handleRefreshSingleMeal = async (day) => {
+    setLoadingMealDay(day);
+    try {
+      const response = await fetch(`http://${window.location.hostname}:8000/api/v1/generate_single_meal?day=${encodeURIComponent(day)}&user_id=1&store_name=${encodeURIComponent(selectedStore)}`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === "success") {
+           // Swap the old meal with the newly generated meal
+           setMealPlan(prev => prev.map(m => m.day === day ? data.meal : m));
+        }
+      } else {
+         alert("Failed to swap meal. API Error.");
+      }
+    } catch (err) {
+       console.error("Network error while swapping meal", err);
+    }
+    setLoadingMealDay(null);
+  };
+
   return (
     <div className="glass-panel app-container">
       
@@ -80,37 +109,49 @@ function App() {
 
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
         <h1 className="title">ZeroCart</h1>
-        <p className="subtitle">Automated Household Restocking</p>
+        <p className="subtitle">Autonomous Grocery Restocking</p>
       </div>
 
-      {/* Store Toggle */}
       {basketState === 'idle' && (
         <div className="store-toggle">
           <div 
-            className={`store-option ${selectedStore === 'Tesco Blackburn' ? 'active' : ''}`}
-            onClick={() => setSelectedStore('Tesco Blackburn')}
+            className={`store-option ${selectedStore === 'Tesco Live' ? 'active' : ''}`}
+            onClick={() => setSelectedStore('Tesco Live')}
           >
-            Tesco
+            Tesco (Live Scrape)
           </div>
           <div 
             className={`store-option ${selectedStore === 'ASDA Blackburn' ? 'active' : ''}`}
             onClick={() => setSelectedStore('ASDA Blackburn')}
           >
-            ASDA
+            ASDA (Cached)
           </div>
         </div>
       )}
 
       {basketState === 'idle' && (
-        <button className="btn-primary" onClick={handleBuildCart}>
-          <ShoppingBag size={18} /> Build & Plan Week
+        <button className="btn-primary" onClick={handleSyncAndBuild}>
+          <ShoppingBag size={18} /> Sync & Plan Week
         </button>
+      )}
+
+      {basketState === 'syncing' && (
+        <div className="flex-center" style={{ flexDirection: 'column', gap: '1rem', padding: '3rem 0' }}>
+          <div className="loader"></div>
+          <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem', textAlign: 'center' }}>
+             Deploying Chrome Symbiote <br/>
+             <span style={{fontSize: '0.8rem', opacity: 0.7}}>Scraping live prices from Tesco.com...</span>
+          </p>
+        </div>
       )}
 
       {basketState === 'building' && (
         <div className="flex-center" style={{ flexDirection: 'column', gap: '1rem', padding: '3rem 0' }}>
           <div className="loader"></div>
-          <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem' }}>Math engine computing optimal basket...</p>
+          <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem', textAlign: 'center'}}>
+             Math engine calculating optimum macros...<br/>
+             <span style={{fontSize: '0.8rem', opacity: 0.7}}>Generating 7-day algorithmic recipes</span>
+          </p>
         </div>
       )}
 
@@ -123,7 +164,11 @@ function App() {
             </div>
             <div className="stat-box">
               <div className="stat-value">{basketData.total_protein_grams.toFixed(0)}g</div>
-              <div className="stat-label">Protein yield</div>
+              <div className="stat-label">Protein</div>
+            </div>
+            <div className="stat-box desktop-stat">
+              <div className="stat-value">{basketData.budget_utilized}</div>
+              <div className="stat-label">Budget Used</div>
             </div>
           </div>
 
@@ -134,16 +179,53 @@ function App() {
               </div>
               <div className="meal-carousel">
                 {mealPlan.map((meal, idx) => (
-                  <div key={idx} className="meal-card">
-                    <div className="meal-day">{meal.day} • {meal.meal_type}</div>
-                    <div className="meal-title">{meal.recipe_name}</div>
-                    <div className="meal-desc">{meal.instructions}</div>
-                    <div className="meal-ing-container">
-                      {meal.ingredients_used.slice(0,4).map((ing, i) => (
-                        <span key={i} className="meal-ing">{ing.split(' ')[0]}</span> // Just showing first word for compactness
-                      ))}
-                      {meal.ingredients_used.length > 4 && <span className="meal-ing">+{meal.ingredients_used.length - 4} more</span>}
-                    </div>
+                  <div key={idx} className="meal-card" style={{ position: 'relative' }}>
+                    
+                    {loadingMealDay === meal.day ? (
+                      <div className="flex-center" style={{height: '100%'}}>
+                          <div className="loader"></div>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          <span className="meal-day">{meal.day} • {meal.meal_type}</span>
+                          <button 
+                             onClick={() => handleRefreshSingleMeal(meal.day)}
+                             title="Swap this recipe"
+                             style={{ padding: '0.3rem', width: 'auto', background: 'transparent', color: 'var(--text-dim)', border: '1px solid var(--border-color)', borderRadius: '6px' }}
+                          >
+                             <RefreshCw size={14} />
+                          </button>
+                        </div>
+                        
+                        <div className="meal-title">{meal.recipe_name}</div>
+                        
+                        {/* Granular Stats */}
+                        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
+                           <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.2rem', color: 'var(--text-dim)'}}>
+                              <Clock size={12}/> {meal.prep_time_mins + meal.cooking_time_mins}m total
+                           </span>
+                           <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.2rem', color: 'var(--text-dim)'}}>
+                              <Scale size={12}/> {meal.total_weight_grams}g
+                           </span>
+                        </div>
+
+                        <div className="meal-desc">
+                            <ul style={{ paddingLeft: '1rem', margin: 0 }}>
+                                {meal.cooking_instructions?.slice(0, 3).map((step, sIdx) => (
+                                    <li key={sIdx} style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>{step}</li>
+                                ))}
+                            </ul>
+                        </div>
+
+                        <div className="meal-ing-container">
+                          {meal.ingredients_used?.slice(0,4).map((ing, i) => (
+                            <span key={i} className="meal-ing">{ing.split(' ')[0]}</span>
+                          ))}
+                          {meal.ingredients_used?.length > 4 && <span className="meal-ing">+{meal.ingredients_used.length - 4} items</span>}
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -155,7 +237,7 @@ function App() {
           </button>
           
           <button style={{ marginTop: '0.75rem', background: 'transparent', color: 'var(--text-dim)', fontSize: '0.9rem', padding: '0.5rem' }} onClick={() => setBasketState('idle')}>
-            Cancel
+            Cancel & Reset
           </button>
         </div>
       )}
@@ -172,15 +254,14 @@ function App() {
           <CheckCircle2 size={56} color="var(--success-color)" style={{ margin: '0 auto 1.5rem' }} />
           <h2 style={{ fontSize: '1.4rem', color: 'var(--text-main)', marginBottom: '0.5rem' }}>Agent Deployed</h2>
           <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem', marginBottom: '2rem', lineHeight: 1.5 }}>
-            Playwright is commandeering your local Chrome session softly in the background. Check your banking app for the 3D secure approval shortly.
+            Playwright is commandeering your local browser softly in the background. Check your banking app for the 3D secure approval shortly.
           </p>
           
           <button className="btn-primary" onClick={() => setBasketState('idle')}>
-            Complete
+            Start New Run
           </button>
         </div>
       )}
-
     </div>
   );
 }

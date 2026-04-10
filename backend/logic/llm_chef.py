@@ -12,7 +12,11 @@ class Meal(BaseModel):
     day: str = Field(description="Day of the week, e.g., Monday")
     meal_type: str = Field(description="Breakfast, Lunch, or Dinner")
     recipe_name: str = Field(description="Name of the dish")
-    instructions: str = Field(description="Short step-by-step cooking instructions")
+    prep_time_mins: int = Field(description="Estimated preparation time in minutes")
+    cooking_time_mins: int = Field(description="Estimated cooking time in minutes")
+    total_weight_grams: int = Field(description="Estimated total weight of the meal in grams")
+    number_of_ingredients: int = Field(description="Total count of discrete ingredients used")
+    cooking_instructions: List[str] = Field(description="Detailed step-by-step cooking instructions")
     ingredients_used: List[str] = Field(description="List of ingredients used from the provided basket ONLY")
 
 class WeeklyPlan(BaseModel):
@@ -54,9 +58,44 @@ def generate_recipe_plan(basket: List[Dict[str, Any]]) -> dict:
                 temperature=0.7,
             ),
         )
-        # response.text is guaranteed to be a JSON string mathematically bound to WeeklyPlan format
         import json
         plan_json = json.loads(response.text)
         return {"status": "success", "plan": plan_json}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+def generate_single_recipe(day: str, basket: List[Dict[str, Any]]) -> dict:
+    """
+    Generates EXACTLY ONE meal substitution.
+    """
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key or api_key == "YOUR_API_KEY_HERE":
+        return {"status": "error", "message": "GEMINI_API_KEY is not set"}
+
+    client = genai.Client(api_key=api_key)
+    ingredients_text = "\n".join([f"- {item['quantity']}x {item['item_name']}" for item in basket])
+
+    system_instruction = (
+        "You are ZeroCart's Master Chef AI. Your job is exclusively to generate ONE replacement meal "
+        "for the user. CRITICAL RULE: You may ONLY use the ingredients provided in the user's basket. "
+        "Do not invent ingredients."
+    )
+
+    prompt = f"Here is my basket:\n{ingredients_text}\n\nProvide one newly generated alternative recipe for {day}."
+
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                response_mime_type="application/json",
+                response_schema=Meal,
+                temperature=0.9, # Higher temperature for variation
+            ),
+        )
+        import json
+        meal_json = json.loads(response.text)
+        return {"status": "success", "meal": meal_json}
     except Exception as e:
         return {"status": "error", "message": str(e)}

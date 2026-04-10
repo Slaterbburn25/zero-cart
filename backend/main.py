@@ -85,6 +85,43 @@ def remove_from_fridge(item_id: int, db: Session = Depends(get_db)):
 
 
 # -----------------
+# PHASE 1B: LIVE EDGE SCRAPING
+# -----------------
+
+@app.post("/api/v1/sync_live_prices")
+def sync_live_prices(db: Session = Depends(get_db)):
+    """Triggers edge scraper to find live deals and inserts them into DB."""
+    from models import LocalDeal
+    import json
+    import subprocess
+    import os
+    
+    try:
+        script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "edge-client", "live_scraper.js"))
+        result = subprocess.run(["node", script_path], capture_output=True, text=True, timeout=120)
+        
+        output_json = json.loads(result.stdout)
+        if output_json.get("status") == "success":
+            deals = output_json.get("deals", [])
+            
+            # Wipe old "Tesco Live" mock data safely
+            db.query(LocalDeal).filter(LocalDeal.store_name == "Tesco Live").delete()
+            
+            # Inject new live deals
+            for deal_data in deals:
+                deal = LocalDeal(**deal_data)
+                db.add(deal)
+            
+            db.commit()
+            return {"status": "success", "message": f"Successfully injected {len(deals)} live deals from the wild."}
+        else:
+            raise HTTPException(status_code=500, detail="Scraper returned an error state.")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to run live scraper: {str(e)}")
+
+
+# -----------------
 # PHASE 2: MATH ENGINE ENDPOINTS
 # -----------------
 
@@ -138,6 +175,29 @@ def generate_weekly_plan(user_id: int, store_name: str = "Tesco Blackburn", db: 
         "basket_summary": basket_result.get("summary"),
         "meal_plan": llm_result.get("plan")
     }
+
+@app.post("/api/v1/generate_single_meal")
+def generate_single_meal(day: str, user_id: int, store_name: str = "Tesco Blackburn", db: Session = Depends(get_db)):
+    """Generates ONE substitute meal for a specific day."""
+    from logic.constraint_solver import optimize_basket
+    from logic.llm_chef import generate_single_recipe
+    from models import User
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    basket_result = optimize_basket(db=db, user_id=user_id, budget=user.weekly_budget, min_protein=400.0, store_name=store_name)
+    if basket_result.get("status") != "success":
+        raise HTTPException(status_code=400, detail="Math Engine failed to build a valid basket.")
+        
+    basket_items = basket_result.get("basket", [])
+    llm_result = generate_single_recipe(day=day, basket=basket_items)
+    
+    if llm_result.get("status") == "error":
+        raise HTTPException(status_code=500, detail=f"LLM Error: {llm_result.get('message')}")
+        
+    return llm_result
 
 # -----------------
 # PHASE 5: PWA INTERFACE
