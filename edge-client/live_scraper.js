@@ -62,24 +62,30 @@ async function runScraper() {
             await page.goto(`https://www.tesco.com/groceries/en-GB/search?query=${encodeURIComponent(cat.query)}`, { timeout: 15000 });
             
             // Wait for grid to load via generic anchor tags rather than hardcoded obfuscated classes
-            await page.waitForSelector('a', { timeout: 5000 });
+            await page.waitForTimeout(2500); // Give React time to build DOM
             
             // Extract item names and nearest prices robustly ignoring standard DOM class names
-            const rawItems = await page.$$eval('a', anchors => {
-                return anchors.map(a => {
-                    const parentBlock = a.closest('li') || a.closest('div');
-                    if (!parentBlock) return null;
-                    
-                    const textContent = parentBlock.innerText;
-                    const priceMatch = textContent.match(/£(\d+\.\d{2})/);
-                    
-                    if (!priceMatch || a.innerText.length < 4) return null;
-                    
-                    return {
-                        name: a.innerText.trim(),
-                        price: parseFloat(priceMatch[1])
+            const rawItems = await page.evaluate(() => {
+                const anchors = Array.from(document.querySelectorAll('a'));
+                const productLinks = anchors.filter(a => a.href.includes('/products/') && a.innerText.length > 5);
+                
+                return productLinks.map(a => {
+                    // Traverse up looking for a price string
+                    let parent = a.parentElement;
+                    let priceStr = null;
+                    for(let i=0; i<5; i++) {
+                        if(!parent) break;
+                        if(parent.innerText && parent.innerText.includes('£')) {
+                            const match = parent.innerText.match(/£(\d+\.\d{2})/);
+                            if(match) {
+                                priceStr = match[1];
+                                break;
+                            }
+                        }
+                        parent = parent.parentElement;
                     }
-                }).filter(i => i !== null);
+                    return { name: a.innerText.trim(), price: priceStr ? parseFloat(priceStr) : null };
+                }).filter(item => item.price !== null);
             });
 
             // Deduplicate items
