@@ -29,7 +29,7 @@ function App() {
     setBasketState('building');
     
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/generate_plan?user_id=1&store_name=${encodeURIComponent(selectedStore)}`, {
+      const response = await fetch(`http://${window.location.hostname}:8000/api/v1/generate_plan?user_id=1&store_name=${encodeURIComponent(selectedStore)}`, {
         method: 'POST'
       });
       
@@ -57,7 +57,7 @@ function App() {
     setBasketState('approving');
     
     try {
-      await fetch(`http://localhost:8000/api/v1/cart/approve?user_id=1&store_name=${encodeURIComponent(selectedStore)}`, {
+      await fetch(`http://${window.location.hostname}:8000/api/v1/cart/approve?user_id=1&store_name=${encodeURIComponent(selectedStore)}`, {
         method: 'POST'
       });
       setBasketState('done');
