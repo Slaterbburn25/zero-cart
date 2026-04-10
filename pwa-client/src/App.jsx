@@ -70,7 +70,7 @@ function App() {
   };
 
   return (
-    <div className="glass-panel" style={{ width: '450px', maxWidth: '95vw' }}>
+    <div className="glass-panel app-container">
       
       {!notificationsEnabled && (
         <div className="notification-banner" onClick={enableNotifications} style={{cursor: 'pointer'}}>

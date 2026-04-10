@@ -23,11 +23,8 @@ body {
   font-family: 'Inter', sans-serif;
   background-color: var(--bg-color);
   color: var(--text-main);
+  padding: 2rem 1rem;
   min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 5vh;
 }
 
 /* Clean, Flat Containers */
@@ -260,4 +257,41 @@ button {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Responsive Breakpoints */
+.app-container {
+  width: 100%;
+  max-width: 450px;
+  margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+  body {
+    padding: 4rem 1rem;
+  }
+  
+  .app-container {
+    max-width: 850px;
+    padding: 3rem 4rem;
+  }
+  
+  .title {
+    font-size: 2.8rem;
+  }
+  
+  .stat-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .meal-carousel {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    overflow-x: visible;
+    gap: 1.5rem;
+  }
+  
+  .meal-card {
+    min-width: auto;
+  }
 }
