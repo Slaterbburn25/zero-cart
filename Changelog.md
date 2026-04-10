@@ -5,11 +5,14 @@ All code changes and development progress will be tracked here.
 ## 2026-04-10: Agent Calibration & Link Hardening (AAA Polish)
 
 ### Added
+- **LLM Basket Architect System (`llm_basket_architect.py`)**: Substituted the strict Google OR-Tools math constraint engine with a logical AI pass. Rather than blindly maxing out macro thresholds with random staples, Gemini inherently maps volume-to-meal metrics (e.g. knowing 1 bag of rice yields 10 portions) to cap quantities correctly, eliminating over-purchasing.
+- **Reasoning Display (PWA)**: Updated the React frontend itemized receipt to display the "Logic" underneath each item purchase, allowing the user to review precisely *why* ZeroCart allocated that specific quantity.
 - **Persona Expansion**: Upgraded the `User` SQLite schema securely via new `ALTER TABLE` migrations to track deeper psychological dimensions: `primary_goal`, `preferred_meats`, and `hated_foods`.
 - **UI Calibration Dashboard**: Expanded `App.jsx` React state to surface beautiful dropdowns and text inputs for setting specific persona rules (e.g. tracking "Vegan Explorer" or checking "I don't care" dynamically).
-- **Deep Clean**: Permanently wiped old iteration files (`migrate.py`, `test_ideation2.py`, `test_solver.py`, etc.) ensuring terminal and filesystem purity.
+- **Deep Clean**: Permanently wiped old iteration files (`migrate.py`, `test_ideation2.py`, `test_solver.py`, `constraint_solver.py`, etc.) ensuring terminal and filesystem purity.
 
 ### Changed
+- **Math Execution (`main.py`)**: Restructured `/api/v1/build_cart` to bypass OR-tools completely. It natively maps Gemini's structurally generated integer quantities against live SQLite data to calculate the physically perfect Total Cost without hallucinations.
 - **Scraper Link Safeguard**: Updated `llm_scraper.py` System Instructions. The grounder is absolutely forbidden from hallucinative specific structural SKUs. If it cannot extract a perfect structural URL natively, it generates exact `search?query=...` strings to guarantee perfectly working user landing pages.
 - **Project Architectural Alignment**: Updated `ProjectPlan.md` and `Changelog.md` to reflect the newly reversed structural reality of ZeroCart (Ideation BEFORE Math execution).
 

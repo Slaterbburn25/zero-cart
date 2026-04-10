@@ -214,16 +214,46 @@ def build_cart(payload: BuildCartPayload, db: Session = Depends(get_db)):
         except Exception as e:
             print(f"Error saving Target Deal: {e}")
     db.commit()
+    # 2. Run the LLM Basket Architect to apply human common-sense rationing
+    from logic.llm_basket_architect import allocate_basket
     
-    # 2. Run the math engine to optimize budget safely
-    basket_result = optimize_basket(db=db, user=user, store_name=payload.store_name)
+    # We fetch the exact DB records just scraped so Gemini has absolute SKU/price truth
+    fresh_deals = db.query(models.LocalDeal).filter(models.LocalDeal.store_name == payload.store_name).all()
     
-    if basket_result.get("status") != "success":
-        raise HTTPException(status_code=400, detail="Math Engine could not physically adhere to all limit constraints with the generated abstract items.")
+    architect_result = allocate_basket(user=user, scraped_deals=fresh_deals)
+    
+    if architect_result.get("status") != "success":
+        raise HTTPException(status_code=500, detail=f"Basket Architect failed: {architect_result.get('message')}")
         
+    final_basket = []
+    total_cost = 0.0
+    total_protein = 0.0
+    
+    # Map the LLM's SKUs back to the DB to natively calculate real totals
+    for allocation in architect_result.get("allocations", []):
+        sku = allocation.get("sku")
+        qty = allocation.get("quantity", 1)
+        deal_obj = next((d for d in fresh_deals if d.sku == sku), None)
+        
+        if deal_obj and qty > 0:
+            final_basket.append({
+                "sku": deal_obj.sku,
+                "item_name": deal_obj.item_name,
+                "url": getattr(deal_obj, 'item_url', getattr(deal_obj, 'url', '')),
+                "quantity": qty,
+                "selected_price": round(qty * deal_obj.price, 2),
+                "logic": allocation.get("logic", "")
+            })
+            total_cost += qty * deal_obj.price
+            total_protein += qty * deal_obj.protein_grams
+
     return {
-        "basket_summary": basket_result.get("summary"),
-        "basket_items": basket_result.get("basket", [])
+        "basket_summary": {
+             "total_cost": round(total_cost, 2),
+             "total_protein_grams": round(total_protein, 2),
+             "budget_utilized": f"{round((total_cost/user.weekly_budget)*100, 1)}%" if user.weekly_budget else "N/A"
+        },
+        "basket_items": final_basket
     }
 
 @app.get("/api/v1/generate_meal_image")
