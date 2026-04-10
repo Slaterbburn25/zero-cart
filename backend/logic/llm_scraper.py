@@ -18,51 +18,21 @@ def get_live_deals(target_categories: List[dict] = None) -> dict:
     from dotenv import load_dotenv
     load_dotenv(env_path)
     
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return {"status": "error", "message": "GEMINI_API_KEY not configured for Web Scraper."}
-
-    client = genai.Client(api_key=api_key)
+    print(f"[Cloud Brain] Routing {len(target_categories)} queries to Local Edge Node (Playwright)...")
+    import requests
     
-    # We build a comprehensive search prompt to direct the model to use the grounding search tool exactly
-    prompt = (
-        "You are an Advanced Agentic Grocery Price Data Scraper. "
-        "Your task is to use the Google Search tool to find the exact current prices on 'www.tesco.com/groceries/en-GB/products' "
-        "for the following high-level dietary queries. "
-        f"Queries: {', '.join([c['query'] for c in target_categories])}. "
-        "For EACH query, find the top 1 or 2 most relevant results from Tesco. "
-        "Ensure you provide the EXACT numeric price and a functional URL to the product. "
-        "CRITICAL LINK RULE: Do NOT hallucinate product ID digits! If the search grounder cannot yield the literal accurate product URL, you MUST output a search query URL in this exact format: 'https://www.tesco.com/groceries/en-GB/search?query=YOUR_URL_ENCODED_QUERY'. "
-        "Map the 'estimated_protein' and 'estimated_cals' heavily scaled up (e.g., multiply by 5 per pack) into your JSON output. "
-        "IMPORTANT: You MUST return ONLY a raw JSON mapping precisely to this structure: "
-        '{"deals": [{"store_name": "Tesco Live", "sku": "LIVE_xxx", "item_name": "...", "price": 2.50, "price_per_unit": 1.50, "url": "https://www.tesco.com/groceries/en-GB/search?query=Chicken", "protein_grams": 150, "calories": 500}]}. '
-        "CRITICAL PRICE RULE: If you CANNOT find the exact live numeric price via your search tool, you MUST use your baseline LLM knowledge to estimate a realistic average UK retail price for the item (e.g., Garlic £0.30, Zucchini £1.50). NEVER, under any circumstances, leave the price as 0.0 or 0. "
-        "Do not include Markdown blocks like ```json, just the pure JSON."
-    )
-
     try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                tools=[{"google_search": {}}],
-                temperature=0.0
-            ),
+        response = requests.post(
+            "http://127.0.0.1:8001/api/v1/scrape_tesco",
+            json={"targets": target_categories},
+            timeout=180 # Playwright takes time to open UI and loop
         )
-        data = response.text
-        if "```json" in data:
-            data = data.split("```json")[1].split("```")[0].strip()
-        elif "```" in data:
-            data = data.split("```")[1].strip()
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print(f"[Cloud Brain] Edge Node returned error: {response.status_code}")
+            raise Exception("Edge Node Scraper failed or returned non-200")
             
-        parsed = json.loads(data)
-        
-        # Enforce exact match to SQL Model requirements
-        # Our SQLite engine maps `url` to `item_url` automatically now based on my fix earlier?
-        # Actually our main.py handles mapping `deal.get("url")` gracefully.
-        
-        return {"status": "success", "deals": parsed.get("deals", [])}
-        
     except Exception as e:
         print(f"Agentic Scraper Error: {e}")
         # Graceful absolute fallback incase Gemini routing is entirely unavailable without internet
@@ -72,16 +42,16 @@ def get_live_deals(target_categories: List[dict] = None) -> dict:
                 "store_name": "Tesco Live",
                 "sku": "LIVE_FALLBACK_" + str(hash(cat['query']))[-5:],
                 "item_name": f"Tesco Agent Fallback: {cat['query']}",
-                "price": 2.50,
+                "price": 1.50,
                 "price_per_unit": 2.00,
                 "url": "https://www.tesco.com",
-                "protein_grams": cat['estimated_protein'] * 5,
-                "calories": cat['estimated_cals'] * 5
+                "protein_grams": cat.get('estimated_protein', 20) * 5,
+                "calories": cat.get('estimated_cals', 200) * 5
             })
         return {"status": "success", "deals": fallback_deals}
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv("../.env")
-    result = get_live_deals()
+    result = get_live_deals([{"query": "Garlic", "estimated_protein": 0, "estimated_cals": 0}])
     print(json.dumps(result, indent=2))
