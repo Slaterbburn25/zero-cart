@@ -1,0 +1,59 @@
+# ZEROCART: TECHNICAL PROJECT PLAN
+**Status:** Active Development
+**Developer:** Gemini AI Assistant
+**Project Manager:** Non-Technical Founder
+**Location Focus:** UK Market (Blackburn, BB postcodes for MVP testing)
+
+## 🎯 SYSTEM CONTEXT & ARCHITECTURAL RULES
+You are building "ZeroCart," an autonomous grocery supply-chain manager. The Project Manager DOES NOT CODE. You must write 100% of the code, provide exact terminal commands, and guide the deployment.
+
+**STRICT ARCHITECTURAL RULES:**
+1. **Split-Brain Cloud:** We use a Python/FastAPI backend. Google OR-Tools handles the strict math/budgeting. Gemini 1.5 Pro (via Vertex AI API) handles the recipe generation.
+2. **Edge Execution (The Moat):** To bypass Cloudflare, CAPTCHAs, and PSD2/3D Secure banking laws, we DO NOT run headless browsers in the cloud. Execution happens locally via a lightweight Node.js/Playwright script on the user's machine (acting as an MCP server), using their own IP and authenticated sessions.
+3. **No Placeholders:** Never write `// add logic here` or `...rest of code`. Provide complete files.
+4. **Step-by-Step:** You must NEVER jump ahead. Complete one task, provide a way to test it locally, and wait for the user to say "Next" before moving on.
+
+---
+
+## 🚀 DEVELOPMENT ROADMAP (PHASE-BY-PHASE)
+
+### PHASE 1: Environment Setup & The "Virtual Fridge" Database
+**Objective:** Set up the Python backend and the PostgreSQL database.
+*   **Task 1.1:** Provide exact terminal commands to create project folders (`/backend`, `/edge-client`), initialize a Python virtual environment, and create a `requirements.txt` (FastAPI, uvicorn, sqlalchemy, ortools, google-genai, psycopg2).
+*   **Task 1.2:** Write `models.py`. Define SQLAlchemy database schemas for: `Users` (budget, dietary constraints), `VirtualFridge` (inventory, biological decay dates), and `LocalDeals` (scraped prices).
+*   **Task 1.3:** Build the core `main.py` FastAPI server with basic CRUD endpoints for the Virtual Fridge.
+*   **Task 1.4:** Write a mock Python script (`seed_db.py`) to inject 30 realistic UK grocery items (Tesco Blackburn) with prices, weights, and macros into the database for testing.
+
+### PHASE 2: The "Left Brain" (Google OR-Tools Math Engine)
+**Objective:** Build the strict mathematical logic to calculate the cheapest £90 basket.
+*   **Task 2.1:** Create `logic/constraint_solver.py`.
+*   **Task 2.2:** Implement `ortools.linear_solver`. 
+    *   *Constraint A:* Total cost strictly <= User Budget.
+    *   *Constraint B:* Total protein >= Target minimum.
+    *   *Constraint C:* Query the Virtual Fridge—do not buy ingredients the user already has.
+*   **Task 2.3:** Expose this solver via a FastAPI endpoint `POST /api/v1/optimize_basket`. Provide a `curl` command for the user to test the math logic in their terminal.
+
+### PHASE 3: The "Right Brain" (Gemini Recipe Orchestrator)
+**Objective:** Convert the raw OR-Tools ingredient list into strict, JSON-formatted 7-day meal plans.
+*   **Task 3.1:** Create `logic/llm_chef.py`. Integrate the Google GenAI SDK.
+*   **Task 3.2:** Write a strict System Prompt restricting Gemini to *only* use the ingredients provided by the OR-Tools output. 
+*   **Task 3.3:** Use "Structured Outputs" to force Gemini to return a strict JSON schema: `[{"day": "Monday", "meal": "Dinner", "recipe": "...", "ingredients_used": [...]}]`.
+*   **Task 3.4:** Create endpoint `POST /api/v1/generate_plan` that chains Phase 2 (Math) and Phase 3 (Recipes) together.
+
+### PHASE 4: Edge Execution (Local Playwright/Node.js Client)
+**Objective:** Build the local "Hands" that bypass anti-bot software by injecting the cart directly from the user's laptop.
+*   **Task 4.1:** Provide terminal commands to initialize the `/edge-client` Node.js environment and install Playwright.
+*   **Task 4.2:** Write `cart_injector.js`. This script must launch a visible browser using the user's default Chrome profile (so they are already logged into Tesco).
+*   **Task 4.3:** Write the DOM manipulation logic to navigate `tesco.com/groceries`, loop through the Phase 2 JSON SKU list, and programmatically click the "Add to Basket" buttons.
+*   **Task 4.4:** **The Payment Handoff:** Once checkout is reached, the script MUST PAUSE execution, bring the browser to the foreground, and trigger a system notification telling the user to manually authorize the FaceID/Monzo 3D Secure prompt.
+
+### PHASE 5: The Interface (WhatsApp Twilio Integration)
+**Objective:** Allow the user to approve baskets purely via WhatsApp.
+*   **Task 5.1:** Guide the user to set up a Twilio Sandbox number.
+*   **Task 5.2:** Create a webhook endpoint in FastAPI (`POST /api/v1/whatsapp_webhook`).
+*   **Task 5.3:** Implement conversational flow: If backend generates a £75 basket, text the user. If user replies "YES", the backend signals the local Node.js edge client (Phase 4) to execute the basket build.
+
+### PHASE 6: The Decay Tracker & Cloud Deployment
+**Objective:** Track biological decay and deploy the backend to GCP.
+*   **Task 6.1:** Write a daily Python background task that checks the Virtual Fridge database at 16:00. If chicken expires tomorrow, trigger Vertex AI to generate a recipe and WhatsApp the user: *"Chicken expires tomorrow. Cook this tonight."*
+*   **Task 6.2:** Provide the exact `Dockerfile` and `gcloud` terminal commands to deploy the backend securely to Google Cloud Run, and set up the live Cloud SQL instance.

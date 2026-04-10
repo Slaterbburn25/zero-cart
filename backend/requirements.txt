@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+sqlalchemy
+ortools
+google-genai
+pydantic
