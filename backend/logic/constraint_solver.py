@@ -6,7 +6,7 @@ from ortools.linear_solver import pywraplp
 from sqlalchemy.orm import Session
 from models import LocalDeal, VirtualFridge
 
-def optimize_basket(db: Session, user_id: int, budget: float, min_protein: float = 300.0):
+def optimize_basket(db: Session, user_id: int, budget: float, min_protein: float = 300.0, store_name: str = "Tesco Blackburn"):
     """
     Executes Google OR-Tools to calculate the perfect grocery basket.
     """
@@ -15,10 +15,10 @@ def optimize_basket(db: Session, user_id: int, budget: float, min_protein: float
     if not solver:
         return {"status": "failed", "reason": "Solver backend not available."}
 
-    # 1. Fetch available deals from our local supermarket (Tesco Blackburn mock data)
-    all_deals = db.query(LocalDeal).all()
+    # 1. Fetch available deals from our local supermarket
+    all_deals = db.query(LocalDeal).filter(LocalDeal.store_name == store_name).all()
     if not all_deals:
-        return {"status": "failed", "reason": "No store inventory found."}
+        return {"status": "failed", "reason": f"No store inventory found for {store_name}."}
     
     # 2. Fetch the user's current Virtual Fridge inventory
     fridge_items = db.query(VirtualFridge).filter(VirtualFridge.user_id == user_id).all()

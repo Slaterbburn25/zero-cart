@@ -55,8 +55,27 @@ def seed_database():
     db.commit()
     db.refresh(test_user)
 
-    print("Injecting 30 Tesco Blackburn items into LocalDeals...")
-    for deal_data in mock_deals:
+    print("Injecting Tesco and ASDA items into LocalDeals...")
+    asda_deals = [
+        {"store_name": "ASDA Blackburn", "sku": "A111", "item_name": "ASDA Tender Chicken Breasts 600G", "price": 4.20, "price_per_unit": 0.70, "protein_grams": 138.0, "calories": 640},
+        {"store_name": "ASDA Blackburn", "sku": "A112", "item_name": "ASDA Lean Beef Mince 5% Fat 500G", "price": 3.40, "price_per_unit": 0.68, "protein_grams": 105.0, "calories": 620},
+        {"store_name": "ASDA Blackburn", "sku": "A113", "item_name": "ASDA Baked Beans in Tomato Sauce 410G", "price": 0.27, "price_per_unit": 0.06, "protein_grams": 18.5, "calories": 330},
+        {"store_name": "ASDA Blackburn", "sku": "A114", "item_name": "ASDA Large Free Range Eggs 12pk", "price": 2.50, "price_per_unit": 0.20, "protein_grams": 90.0, "calories": 900},
+        {"store_name": "ASDA Blackburn", "sku": "A115", "item_name": "ASDA Greek Style Yogurt 500G", "price": 1.05, "price_per_unit": 0.21, "protein_grams": 24.0, "calories": 440},
+        {"store_name": "ASDA Blackburn", "sku": "A116", "item_name": "ASDA Semi Skimmed Milk 4 Pints", "price": 1.45, "price_per_unit": 0.06, "protein_grams": 81.7, "calories": 1135},
+        {"store_name": "ASDA Blackburn", "sku": "A117", "item_name": "ASDA Closed Cup Mushrooms 300G", "price": 1.00, "price_per_unit": 0.33, "protein_grams": 5.4, "calories": 39},
+        {"store_name": "ASDA Blackburn", "sku": "A118", "item_name": "ASDA Baby Spinach 260G", "price": 1.20, "price_per_unit": 0.46, "protein_grams": 7.3, "calories": 60},
+        {"store_name": "ASDA Blackburn", "sku": "A119", "item_name": "ASDA Broccoli 350G", "price": 0.75, "price_per_unit": 0.21, "protein_grams": 15.4, "calories": 119},
+        {"store_name": "ASDA Blackburn", "sku": "A120", "item_name": "ASDA Cherry Tomatoes 250G", "price": 0.60, "price_per_unit": 0.24, "protein_grams": 1.7, "calories": 45},
+        {"store_name": "ASDA Blackburn", "sku": "A121", "item_name": "ASDA Carrots 1Kg", "price": 0.45, "price_per_unit": 0.04, "protein_grams": 6.0, "calories": 250},
+        {"store_name": "ASDA Blackburn", "sku": "A122", "item_name": "ASDA White Potatoes 2.5Kg", "price": 1.60, "price_per_unit": 0.06, "protein_grams": 47.5, "calories": 1825},
+        {"store_name": "ASDA Blackburn", "sku": "A123", "item_name": "ASDA Long Grain Rice 1Kg", "price": 1.20, "price_per_unit": 0.12, "protein_grams": 70.0, "calories": 3500},
+        {"store_name": "ASDA Blackburn", "sku": "A124", "item_name": "ASDA Penne Pasta 500G", "price": 0.70, "price_per_unit": 0.14, "protein_grams": 60.0, "calories": 1785},
+    ]
+    
+    all_deals = mock_deals + asda_deals
+
+    for deal_data in all_deals:
         deal = LocalDeal(**deal_data)
         db.add(deal)
 

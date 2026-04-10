@@ -16,7 +16,7 @@ To achieve early liquidity and viral adoption, ZeroCart will bypass the "average
 Persona A: The "ADHD Tax" Payer (Primary Early Adopter)
 Demographics: 20-35 years old, professional, neurodivergent.
 The Pain Point: High executive dysfunction makes meal planning and inventory tracking nearly impossible. They frequently buy fresh produce, forget it exists, and throw it away a week later. They rely heavily on expensive food delivery (Deliveroo/UberEats) due to sudden cognitive burnout.
-The Value Proposition: Total removal of cognitive load. They wake up, approve a £45 basket via FaceID, and receive automated WhatsApp messages dictating exactly what to cook before it spoils.
+The Value Proposition: Total removal of cognitive load. They wake up, approve a £45 basket via FaceID in the ZeroCart PWA, and receive push notifications dictating exactly what to cook before it spoils.
 Persona B: The Macro-Obsessed Biohacker
 Demographics: 20-40 years old, highly active, fitness-focused.
 The Pain Point: Views food strictly as fuel. Requires rigid macronutrient targets (e.g., 160g protein, under 2,500 calories). Spends hours calculating the protein-to-cost ratio across different supermarkets.
@@ -93,10 +93,10 @@ Building an autonomous agent that interfaces with the physical world requires en
 The Threat: The perfect meal plan is destroyed if the physical supermarket staff picking the order substitutes a vital ingredient (e.g., substituting chicken breast for premium beef, blowing the budget).
 The Mitigation:
 The MCP extension automatically enforces the "No Substitutions" toggle on all foundational proteins during checkout.
-When the user collects the groceries, the local MCP extension parses the final digital receipt. If an item was out of stock, GCP instantly recalculates the week's meal plan based on the missing ingredient, utilizing reserve pantry items stored in the "Virtual Fridge," and texts the user the revised plan via WhatsApp.
+When the user collects the groceries, the local MCP extension parses the final digital receipt. If an item was out of stock, GCP instantly recalculates the week's meal plan based on the missing ingredient, utilizing reserve pantry items stored in the "Virtual Fridge," and sends a PWA push notification to the user with the revised plan.
 8.2 Hardware Inactivity (The Offline Trap)
 The Threat: Because execution relies on the local MCP server, if the user's laptop is powered off or disconnected from Wi-Fi during the execution window (e.g., 08:00 AM), the agent cannot build the cart.
-The Mitigation: GCP checks for the MCP WebSocket heartbeat at 07:00 AM. If offline, it triggers a proactive WhatsApp message via Dialogflow: "Morning! ZeroCart needs to build your £90 basket today. Please open your laptop and ensure Chrome is running while you have your coffee so I can execute the shop."
+The Mitigation: GCP checks for the MCP WebSocket heartbeat at 07:00 AM. If offline, it triggers a proactive Push Notification: "Morning! ZeroCart needs to build your £90 basket today. Please open your laptop and ensure Chrome is running while you have your coffee so I can execute the shop."
 8.3 Frontend DOM Fragility & Supermarket Hostility
 The Threat: Supermarkets frequently update their website code. If Tesco changes the API endpoint for "Add to Cart," the local MCP tool will break. Supermarkets may also claim the tool violates their Terms of Service.
 The Mitigation (Technical): ZeroCart does not hardcode brittle CSS selectors into the local extension. The extension pulls a dynamic configuration JSON from a GCP bucket every morning. If a supermarket updates its site, ZeroCart engineers update the selector logic once in the cloud, and all local extensions instantly inherit the correct API mapping without requiring a manual app update.
@@ -110,14 +110,13 @@ Why: By locking the variables to a few specific physical stores, your OR-Tools m
 The Target: Gym-goers tracking macros, and neurodivergent/ADHD communities who suffer from the "ADHD Tax" (constantly letting food rot in the fridge).
 9.2 Phase 2: The Viral "Inflation Proof" Referral Loop (Months 4-6)
 A user's ZeroCart dashboard prominently displays a single, massive metric: "Total £ Saved vs. Average Retail Price."
-The Mechanic: When a user clicks "Share Receipt," it generates a custom Instagram/WhatsApp graphic: "ZeroCart just bought Dave's £110 weekly shop for £82 by mathematically optimizing Aldi Price Matches at Blackburn Tesco. Dave did nothing." This acts as verifiable social proof in a cost-of-living crisis.
+The Mechanic: When a user clicks "Share Receipt," it generates a custom Instagram graphic: "ZeroCart just bought Dave's £110 weekly shop for £82 by mathematically optimizing Aldi Price Matches at Blackburn Tesco. Dave did nothing." This acts as verifiable social proof in a cost-of-living crisis.
 
 10. FINANCIAL PROJECTIONS & UNIT ECONOMICS
 Because ZeroCart offloads the heavy browser execution compute to the user's mobile device via Edge-MCP/WebView, the cloud server costs are fractions of a penny per user.
 10.1 Cloud Cost Per User (The GCP Engine)
 Cloud Run (OR-Tools Math Engine): ~£0.02 per month (Math calculations are incredibly cheap).
 Vertex AI (Gemini 1.5 Pro) API: ~£0.20 per month (Generating the JSON recipes 4x a month).
-WhatsApp/Twilio API: ~£0.15 per month.
 Cloud SQL (Virtual Fridge DB): ~£0.10 per month.
 Total Cloud Cost: ~£0.47 per user, per month.
 10.2 B2C Subscription Revenue

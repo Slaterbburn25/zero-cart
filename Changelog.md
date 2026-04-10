@@ -57,3 +57,21 @@ All code changes and development progress will be tracked here.
     - Uses `subprocess.Popen` to asynchronously launch the external Node.js logic (`cart_injector.js`) the moment the user replies "YES".
 - **API Extension** (`backend/main.py`):
     - Added the `POST /api/v1/whatsapp_webhook` endpoint to catch Twilio POST payloads.
+
+## 2026-04-10: Phase 5 Pivot (PWA Integration & Store Selection)
+### Removed
+- **Twilio / WhatsApp Logic**: 
+    - Uninstalled `twilio` SDK.
+    - Deleted `backend/logic/whatsapp_bot.py` and `backend/local_chat.py`. All conversational loops were removed to pivot to a Progressive Web App (PWA).
+    - Removed `POST /api/v1/whatsapp_webhook` from FastAPI routes.
+
+### Added
+- **Progressive Web App** (`pwa-client/`):
+    - Scaffolded a modern Vite + React frontend application configured with `vite-plugin-pwa` for native installation and service worker offline support.
+    - Implemented a clean, pastel, grounded aesthetic with responsive Card and Carousel UI components using vanilla CSS.
+    - Integrated browser-native HTML5 Push Notifications to trigger alerts when the Math engine builds carts.
+    - Added UI handling the retrieval and structured display of Gemini 7-Day Meal Plans (`WeeklyPlan` JSON Schema) natively in the app.
+- **Backend Refactor**:
+    - **CORS Support**: Implemented FastApi `CORSMiddleware` to allow local PWA communication.
+    - **Store Selection Filtering**: Added ASDA dummy data to `seed_db.py`. Modified `constraint_solver.py` and endpoints to dynamically filter `LocalDeals` based on a requested `store_name` (e.g. "Tesco Blackburn" vs "ASDA Blackburn").
+    - **End-to-End Triggers**: Built `POST /api/v1/cart/approve` API that successfully triggers the local Edge Agent subprocess (`cart_injector.js`) via standard web payload rather than SMS response.

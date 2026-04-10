@@ -1,8 +1,11 @@
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import date
 from typing import List
 from pydantic import BaseModel
+import os
+import subprocess
 
 # Internal imports
 from models import SessionLocal, VirtualFridge
@@ -13,7 +16,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Dependency to get the active database session from our SQLite logic
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 def get_db():
     db = SessionLocal()
     try:
@@ -79,7 +89,7 @@ def remove_from_fridge(item_id: int, db: Session = Depends(get_db)):
 # -----------------
 
 @app.post("/api/v1/optimize_basket")
-def trigger_math_engine(user_id: int, db: Session = Depends(get_db)):
+def trigger_math_engine(user_id: int, store_name: str = "Tesco Blackburn", db: Session = Depends(get_db)):
     """Generate perfect basket using Google OR-Tools Constraint Solver."""
     from logic.constraint_solver import optimize_basket
     from models import User
@@ -89,7 +99,7 @@ def trigger_math_engine(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
         
     # We pass the user's explicit budget to the solver
-    result = optimize_basket(db=db, user_id=user_id, budget=user.weekly_budget, min_protein=400.0)
+    result = optimize_basket(db=db, user_id=user_id, budget=user.weekly_budget, min_protein=400.0, store_name=store_name)
     return result
 
 
@@ -98,7 +108,7 @@ def trigger_math_engine(user_id: int, db: Session = Depends(get_db)):
 # -----------------
 
 @app.post("/api/v1/generate_plan")
-def generate_weekly_plan(user_id: int, db: Session = Depends(get_db)):
+def generate_weekly_plan(user_id: int, store_name: str = "Tesco Blackburn", db: Session = Depends(get_db)):
     """Generates a 7-day meal plan based on the Math Engine output."""
     from logic.constraint_solver import optimize_basket
     from logic.llm_chef import generate_recipe_plan
@@ -109,7 +119,7 @@ def generate_weekly_plan(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
         
     # 1. Run the left-brain Math Engine
-    basket_result = optimize_basket(db=db, user_id=user_id, budget=user.weekly_budget, min_protein=400.0)
+    basket_result = optimize_basket(db=db, user_id=user_id, budget=user.weekly_budget, min_protein=400.0, store_name=store_name)
     
     if basket_result.get("status") != "success":
         raise HTTPException(status_code=400, detail="Math Engine failed to build a valid basket.")
@@ -130,24 +140,24 @@ def generate_weekly_plan(user_id: int, db: Session = Depends(get_db)):
     }
 
 # -----------------
-# PHASE 5: WHATSAPP INTERFACE
+# PHASE 5: PWA INTERFACE
 # -----------------
 
-from fastapi import Request
-
-@app.post("/api/v1/whatsapp_webhook")
-async def handle_whatsapp_message(request: Request, db: Session = Depends(get_db)):
-    """Receives ping from Twilio when Dave sends a WhatsApp message."""
-    from logic.whatsapp_bot import process_whatsapp_message
+@app.post("/api/v1/cart/approve")
+def approve_cart(user_id: int):
+    """
+    Called by the PWA. Approves the basket and fires the Playwright browser automation
+    to autonomously navigate to Tesco/ASDA and purchase the items.
+    """
+    print(f"User {user_id} approved the cart! Firing Edge Agent subprocess...")
     
-    # Twilio sends webhook payloads as Form Data
-    form_data = await request.form()
-    
-    sender_phone = form_data.get("From", "")
-    body = form_data.get("Body", "")
-    
-    # Pass to our logic router
-    result_msg = process_whatsapp_message(sender_phone=sender_phone, body=body, db_session=db)
-    
-    # Return the response to let Twilio or the terminal know we successfully processed it
-    return {"status": result_msg}
+    try:
+        # Fire the Edge Agent asynchronously
+        subprocess.Popen(
+            ["node", "../../edge-client/cart_injector.js"],
+            cwd=os.path.abspath(os.path.dirname(__file__))
+        )
+        return {"status": "success", "message": "Edge Agent launched. Check your Monzo app for payment approval."}
+    except Exception as e:
+        print(f"Failed to launch Edge Agent: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to launch Playwright agent: {str(e)}")

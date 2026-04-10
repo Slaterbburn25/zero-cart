@@ -47,13 +47,13 @@ You are building "ZeroCart," an autonomous grocery supply-chain manager. The Pro
 *   **Task 4.3:** Write the DOM manipulation logic to navigate `tesco.com/groceries`, loop through the Phase 2 JSON SKU list, and programmatically click the "Add to Basket" buttons.
 *   **Task 4.4:** **The Payment Handoff:** Once checkout is reached, the script MUST PAUSE execution, bring the browser to the foreground, and trigger a system notification telling the user to manually authorize the FaceID/Monzo 3D Secure prompt.
 
-### PHASE 5: The Interface (WhatsApp Twilio Integration)
-**Objective:** Allow the user to approve baskets purely via WhatsApp.
-*   **Task 5.1:** Guide the user to set up a Twilio Sandbox number.
-*   **Task 5.2:** Create a webhook endpoint in FastAPI (`POST /api/v1/whatsapp_webhook`).
-*   **Task 5.3:** Implement conversational flow: If backend generates a £75 basket, text the user. If user replies "YES", the backend signals the local Node.js edge client (Phase 4) to execute the basket build.
+### PHASE 5: The Interface (Progressive Web App - PWA)
+**Objective:** Allow the user to approve baskets via a premium mobile-first PWA dashboard.
+*   **Task 5.1:** Scaffold a Vite + React web application with `vite-plugin-pwa` for service worker initialization.
+*   **Task 5.2:** Create a FastApi endpoint `POST /api/v1/cart/approve`.
+*   **Task 5.3:** Implement frontend flow: Display the generated basket metrics (cost, macros) beautifully. When the user taps the "Approve Cart" button, the frontend signals the local Node.js edge client (Phase 4) to execute the basket build via the backend proxy.
 
 ### PHASE 6: The Decay Tracker & Cloud Deployment
 **Objective:** Track biological decay and deploy the backend to GCP.
-*   **Task 6.1:** Write a daily Python background task that checks the Virtual Fridge database at 16:00. If chicken expires tomorrow, trigger Vertex AI to generate a recipe and WhatsApp the user: *"Chicken expires tomorrow. Cook this tonight."*
+*   **Task 6.1:** Write a daily Python background task that checks the Virtual Fridge database at 16:00. If chicken expires tomorrow, trigger Vertex AI to generate a recipe and send a PWA Push Notification: *"Chicken expires tomorrow. Cook this tonight."*
 *   **Task 6.2:** Provide the exact `Dockerfile` and `gcloud` terminal commands to deploy the backend securely to Google Cloud Run, and set up the live Cloud SQL instance.
