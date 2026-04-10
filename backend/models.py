@@ -17,7 +17,11 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
-    weekly_budget = Column(Float, default=90.0)
+    weekly_budget = Column(Float, nullable=True) # None implies 'I dont care'
+    calorie_limit = Column(Integer, nullable=True) # None implies 'I dont care'
+    family_size = Column(Integer, default=1)
+    meals_per_day = Column(Integer, default=3)
+    preferred_store = Column(String, default="Tesco Live")
     dietary_constraints = Column(String, default="none")  # e.g., "vegan, high-protein"
     is_active = Column(Boolean, default=True)
 

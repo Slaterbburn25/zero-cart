@@ -49,6 +49,10 @@ def seed_database():
     test_user = User(
         email="dave.blackburn@example.com",
         weekly_budget=90.0,
+        calorie_limit=2200,
+        family_size=1,
+        meals_per_day=3,
+        preferred_store="Tesco Live",
         dietary_constraints="none"
     )
     db.add(test_user)

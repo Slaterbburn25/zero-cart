@@ -128,6 +128,36 @@ def sync_live_prices(db: Session = Depends(get_db)):
         # If Agent Search fails totally
         raise HTTPException(status_code=500, detail="Failed to sync deals via LLM Scraper")
 
+class UserProfileUpdate(BaseModel):
+    weekly_budget: float | None
+    calorie_limit: int | None
+    family_size: int
+    meals_per_day: int
+    preferred_store: str
+
+@app.get("/api/v1/user/{user_id}")
+def get_user_profile(user_id: int, db: Session = Depends(get_db)):
+    import models
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@app.put("/api/v1/user/{user_id}")
+def update_user_profile(user_id: int, profile: UserProfileUpdate, db: Session = Depends(get_db)):
+    import models
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.weekly_budget = profile.weekly_budget
+    user.calorie_limit = profile.calorie_limit
+    user.family_size = profile.family_size
+    user.meals_per_day = profile.meals_per_day
+    user.preferred_store = profile.preferred_store
+    
+    db.commit()
+    return {"status": "success", "user": user}
 
 # -----------------
 # PHASE 2: MATH ENGINE ENDPOINTS
@@ -143,8 +173,8 @@ def trigger_math_engine(user_id: int, store_name: str = "Tesco Blackburn", db: S
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    # We pass the user's explicit budget to the solver
-    result = optimize_basket(db=db, user_id=user_id, budget=user.weekly_budget, min_protein=400.0, store_name=store_name)
+    # We pass the full user explicitly to the solver
+    result = optimize_basket(db=db, user=user, store_name=store_name)
     return result
 
 
@@ -164,7 +194,8 @@ def generate_weekly_plan(user_id: int, store_name: str = "Tesco Blackburn", db: 
         raise HTTPException(status_code=404, detail="User not found")
         
     # 1. Run the left-brain Math Engine
-    basket_result = optimize_basket(db=db, user_id=user_id, budget=user.weekly_budget, min_protein=400.0, store_name=store_name)
+    # We pass the full user object so the math engine can adapt to mouths to feed, calories, etc.
+    basket_result = optimize_basket(db=db, user=user, store_name=store_name)
     
     if basket_result.get("status") != "success":
         raise HTTPException(status_code=400, detail="Math Engine failed to build a valid basket.")
@@ -173,7 +204,7 @@ def generate_weekly_plan(user_id: int, store_name: str = "Tesco Blackburn", db: 
     basket_items = basket_result.get("basket", [])
     
     # 3. Pass it directly to the right-brain Gemini LLM
-    llm_result = generate_recipe_plan(basket=basket_items)
+    llm_result = generate_recipe_plan(basket=basket_items, user=user)
     
     if llm_result.get("status") == "error":
         raise HTTPException(status_code=500, detail=f"LLM Error: {llm_result.get('message')}")

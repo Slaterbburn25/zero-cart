@@ -168,7 +168,76 @@ function AgentTracker({ phase, store }) {
     </div>
   );
 }
+function UserProfileSetup({ profile, onSave, onCancel }) {
+  const [formData, setFormData] = useState(profile || {
+    family_size: 1,
+    meals_per_day: 3,
+    weekly_budget: 90,
+    calorie_limit: 2200,
+    preferred_store: 'Tesco Live'
+  });
 
+  const [noBudget, setNoBudget] = useState(profile?.weekly_budget === null);
+  const [noCalorie, setNoCalorie] = useState(profile?.calorie_limit === null);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({
+      ...formData,
+      weekly_budget: noBudget ? null : formData.weekly_budget,
+      calorie_limit: noCalorie ? null : formData.calorie_limit
+    });
+  };
+
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+      <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem', borderRadius: '16px' }}>
+        <h2 style={{ marginBottom: '1.5rem', textAlign: 'center', color: 'var(--text-main)', fontSize: '1.3rem' }}>Personalize Agent</h2>
+        
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>Mouths to Feed (Family Size)</label>
+            <input type="number" min="1" max="10" value={formData.family_size} onChange={e => setFormData({...formData, family_size: parseInt(e.target.value)})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)' }} required />
+          </div>
+
+          <div>
+             <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>Meals Per Day</label>
+             <input type="number" min="1" max="6" value={formData.meals_per_day} onChange={e => setFormData({...formData, meals_per_day: parseInt(e.target.value)})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)' }} required />
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+               Weekly Budget Limit
+               <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--accent-base)'}}>
+                  <input type="checkbox" checked={noBudget} onChange={e => setNoBudget(e.target.checked)} />
+                  I don't care
+               </div>
+            </label>
+            <input type="number" step="1.00" value={formData.weekly_budget} disabled={noBudget} onChange={e => setFormData({...formData, weekly_budget: parseFloat(e.target.value)})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)', opacity: noBudget ? 0.3 : 1 }} />
+          </div>
+
+          <div>
+             <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+                Daily Caloric Target
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--accent-base)'}}>
+                   <input type="checkbox" checked={noCalorie} onChange={e => setNoCalorie(e.target.checked)} />
+                   I don't care
+                </div>
+             </label>
+             <input type="number" step="50" value={formData.calorie_limit} disabled={noCalorie} onChange={e => setFormData({...formData, calorie_limit: parseInt(e.target.value)})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)', opacity: noCalorie ? 0.3 : 1 }} />
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+             <button type="button" onClick={onCancel} style={{ flex: 1, padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-main)', cursor: 'pointer' }}>Cancel</button>
+             <button type="submit" style={{ flex: 1, padding: '0.7rem', borderRadius: '8px', border: 'none', background: 'var(--accent-base)', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>Save Profile</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------
 function App() {
   const [basketState, setBasketState] = useState('idle');
   const [basketSummary, setBasketSummary] = useState(null);
@@ -177,12 +246,41 @@ function App() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [selectedStore, setSelectedStore] = useState('Tesco Live');
   const [showItemized, setShowItemized] = useState(false); 
+  const [showProfile, setShowProfile] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'granted') {
       setNotificationsEnabled(true);
     }
+    
+    // Fetch initial user state
+    fetch(`http://${window.location.hostname}:8000/api/v1/user/1`)
+      .then(res => res.json())
+      .then(data => {
+         setUserProfile(data);
+         if (data.preferred_store) setSelectedStore(data.preferred_store);
+      })
+      .catch(err => console.error("Could not load user profile"));
   }, []);
+
+  const saveProfile = async (newProfile) => {
+    try {
+      const res = await fetch(`http://${window.location.hostname}:8000/api/v1/user/1`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newProfile)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUserProfile(data.user);
+        setSelectedStore(data.user.preferred_store);
+        setShowProfile(false);
+      }
+    } catch (e) {
+      alert("Failed to save profile.");
+    }
+  };
 
   const enableNotifications = async () => {
     if ('Notification' in window) {
@@ -271,9 +369,31 @@ function App() {
         </div>
       )}
 
-      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+      {showProfile && userProfile && (
+         <UserProfileSetup 
+            profile={userProfile} 
+            onSave={saveProfile} 
+            onCancel={() => setShowProfile(false)} 
+         />
+      )}
+
+      <div style={{ position: 'relative', textAlign: 'center', marginBottom: '1.5rem' }}>
         <h1 className="title">ZeroCart</h1>
         <p className="subtitle">Autonomous Grocery Restocking</p>
+        {basketState === 'idle' && (
+           <button 
+             onClick={() => setShowProfile(true)}
+             style={{ position: 'absolute', right: 0, top: '5px', background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}
+             title="Personalize Agent"
+           >
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
+                 <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: '2px solid var(--accent-base)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '0.7rem' }}>⚙️</span>
+                 </div>
+                 <span style={{ fontSize: '0.65rem' }}>Profile</span>
+              </div>
+           </button>
+        )}
       </div>
 
       {basketState === 'idle' && (

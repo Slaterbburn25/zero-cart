@@ -26,15 +26,16 @@ class Meal(BaseModel):
 class WeeklyPlan(BaseModel):
     meals: List[Meal] = Field(description="A list of generated meals for the entire week")
 
-def generate_recipe_plan(basket: List[Dict[str, Any]]) -> dict:
+def generate_recipe_plan(basket: List[Dict[str, Any]], user) -> dict:
     """
-    Takes the strict mathematical basket from OR-Tools and forces Gemini
-    to build a 7-day meal plan using ONLY those ingredients.
+    Orchestrates Gemini 2.5 Flash to act as our personal chef, generating a structured
+    7-day recipe JSON array exclusively using the ingredients math-engine generated.
     """
+    # Fetch API key
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key or api_key == "YOUR_API_KEY_HERE":
-        return {"status": "error", "message": "GEMINI_API_KEY is not set or invalid in backend/.env"}
-
+        return {"status": "error", "message": "GEMINI_API_KEY is not set"}
+    
     # Initialize the modern google-genai SDK client
     client = genai.Client(api_key=api_key)
 
@@ -42,8 +43,9 @@ def generate_recipe_plan(basket: List[Dict[str, Any]]) -> dict:
     ingredients_text = "\n".join([f"- {item['quantity']}x {item['item_name']}" for item in basket])
 
     system_instruction = (
-        "You are ZeroCart's Master Chef AI. Your job is exclusively to generate a 7-day meal plan "
-        "consisting of Dinner for each day (and maybe Breakfast/Lunch if ingredients allow). "
+        f"You are ZeroCart's Master Chef AI. Your job is exclusively to generate a 7-day meal plan. "
+        f"CRITICAL: You must explicitly generate {user.meals_per_day} meals per day. "
+        f"Each meal MUST proportion enough food to comfortably serve {user.family_size} person/people! "
         "CRITICAL RULE: You may ONLY use the ingredients provided in the user's basket. "
         "You CANNOT hallucinate or add outside ingredients like 'salt, pepper, oil' unless they are in the basket. "
         "Be extremely creative but realistic."
