@@ -173,6 +173,7 @@ def generate_weekly_plan(user_id: int, store_name: str = "Tesco Blackburn", db: 
     # Return the combined masterpiece
     return {
         "basket_summary": basket_result.get("summary"),
+        "basket_items": basket_items,
         "meal_plan": llm_result.get("plan")
     }
 
@@ -198,6 +199,14 @@ def generate_single_meal(day: str, user_id: int, store_name: str = "Tesco Blackb
         raise HTTPException(status_code=500, detail=f"LLM Error: {llm_result.get('message')}")
         
     return llm_result
+
+@app.get("/api/v1/generate_meal_image")
+def get_meal_image(recipe_name: str):
+    from logic.llm_chef import generate_dish_image
+    result = generate_dish_image(recipe_name)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=500, detail=result.get("message"))
+    return {"image_base64": result.get("image_base64")}
 
 # -----------------
 # PHASE 5: PWA INTERFACE

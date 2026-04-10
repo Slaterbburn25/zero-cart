@@ -1,14 +1,135 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, ChevronRight, CheckCircle2, BellRing, RefreshCw, Clock, Scale } from 'lucide-react';
+import { ShoppingBag, ChevronRight, CheckCircle2, BellRing, RefreshCw, Clock, Scale, Info, Image as ImageIcon } from 'lucide-react';
 import './index.css';
 
+// Child component for the Meal Card to handle its own complex state (tabs, images, refreshing)
+function MealCard({ meal, index, handleRefreshSingleMeal, basketDataItems }) {
+  const [activeTab, setActiveTab] = useState('ingredients');
+  const [loadingMeal, setLoadingMeal] = useState(false);
+  const [image64, setImage64] = useState(null);
+  const [loadingImage, setLoadingImage] = useState(false);
+
+  const onRefresh = async () => {
+    setLoadingMeal(true);
+    await handleRefreshSingleMeal(meal.day);
+    setLoadingMeal(false);
+    setImage64(null); // Reset image on refresh
+  };
+
+  const onGenerateImage = async () => {
+    setLoadingImage(true);
+    try {
+      const res = await fetch(`http://${window.location.hostname}:8000/api/v1/generate_meal_image?recipe_name=${encodeURIComponent(meal.recipe_name)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setImage64(data.image_base64);
+      } else {
+        alert("Image API quota exceeded or error occurred.");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setLoadingImage(false);
+  };
+
+  if (loadingMeal) {
+    return (
+      <div className="meal-card flex-center">
+        <div className="loader"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="meal-card" style={{ position: 'relative' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <span className="meal-day">{meal.day} • {meal.meal_type}</span>
+          <button 
+              onClick={onRefresh}
+              title="Swap this recipe"
+              style={{ padding: '0.3rem', width: 'auto', background: 'transparent', color: 'var(--text-dim)', border: '1px solid var(--border-color)', borderRadius: '6px' }}
+          >
+              <RefreshCw size={14} />
+          </button>
+        </div>
+        
+        <div className="meal-title">{meal.recipe_name}</div>
+        
+        {/* Granular Stats */}
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.2rem', color: 'var(--text-dim)'}}>
+              <Clock size={12}/> {meal.prep_time_mins + meal.cooking_time_mins}m total
+            </span>
+            <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.2rem', color: 'var(--text-dim)'}}>
+              <Scale size={12}/> {meal.total_weight_grams}g
+            </span>
+        </div>
+
+        {/* Dynamic Image Container */}
+        <div style={{ marginBottom: '1rem', width: '100%', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-color)' }}>
+          {image64 ? (
+            <img src={`data:image/jpeg;base64,${image64}`} alt="Generated Meal" style={{ width: '100%', height: 'auto', display: 'block' }} />
+          ) : loadingImage ? (
+            <div className="flex-center" style={{ height: '140px' }}><div className="loader"></div></div>
+          ) : (
+            <div className="flex-center" style={{ height: '80px', cursor: 'pointer', color: 'var(--accent-base)' }} onClick={onGenerateImage}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: 500}}>
+                <ImageIcon size={16} /> Predict AI Image
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '0.75rem' }}>
+            <div 
+               style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '0.5rem', fontSize: '0.85rem', fontWeight: activeTab === 'ingredients' ? 600 : 400, color: activeTab === 'ingredients' ? 'var(--accent-base)' : 'var(--text-dim)', borderBottom: activeTab === 'ingredients' ? '2px solid var(--accent-base)' : 'none' }}
+               onClick={() => setActiveTab('ingredients')}
+            >
+                Ingredients
+            </div>
+            <div 
+               style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '0.5rem', fontSize: '0.85rem', fontWeight: activeTab === 'instructions' ? 600 : 400, color: activeTab === 'instructions' ? 'var(--accent-base)' : 'var(--text-dim)', borderBottom: activeTab === 'instructions' ? '2px solid var(--accent-base)' : 'none' }}
+               onClick={() => setActiveTab('instructions')}
+            >
+                Recipe
+            </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'ingredients' ? (
+          <div className="meal-ing-container" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {meal.ingredients_used?.map((ing, i) => {
+               // Optional: cross-reference basketDataItems if needed, but for now we just show what Gemini says
+               return (
+                 <div key={i} style={{ fontSize: '0.8rem', background: 'var(--accent-light)', padding: '0.4rem 0.6rem', borderRadius: '6px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: '75%'}}>{ing.item_name}</span>
+                    <span style={{color: 'var(--accent-base)', fontWeight: 600}}>{ing.quantity_used}x</span>
+                 </div>
+               )
+            })}
+          </div>
+        ) : (
+          <div className="meal-desc" style={{maxHeight: '200px', overflowY: 'auto'}}>
+            <ol style={{ paddingLeft: '1.2rem', margin: 0 }}>
+                {meal.cooking_instructions?.map((step, sIdx) => (
+                    <li key={sIdx} style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>{step}</li>
+                ))}
+            </ol>
+          </div>
+        )}
+    </div>
+  );
+}
+
 function App() {
-  const [basketState, setBasketState] = useState('idle'); // 'idle' | 'syncing' | 'building' | 'review' | 'approving' | 'done'
-  const [basketData, setBasketData] = useState(null);
-  const [mealPlan, setMealPlan] = useState(null);
+  const [basketState, setBasketState] = useState('idle');
+  const [basketSummary, setBasketSummary] = useState(null);
+  const [basketItems, setBasketItems] = useState([]);
+  const [mealPlan, setMealPlan] = useState([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [selectedStore, setSelectedStore] = useState('Tesco Live');
-  const [loadingMealDay, setLoadingMealDay] = useState(null);
+  const [showItemized, setShowItemized] = useState(false); // Toggle for Itemized Bill
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'granted') {
@@ -29,7 +150,6 @@ function App() {
   const handleSyncAndBuild = async () => {
     setBasketState('syncing');
     
-    // Phase 1: Fire Edge Scraper
     try {
       if (selectedStore === 'Tesco Live') {
           const syncRes = await fetch(`http://${window.location.hostname}:8000/api/v1/sync_live_prices`, { method: 'POST' });
@@ -43,8 +163,9 @@ function App() {
       
       if (response.ok) {
         const data = await response.json();
-        setBasketData(data.basket_summary);
-        setMealPlan(data.meal_plan?.meals);
+        setBasketSummary(data.basket_summary);
+        setBasketItems(data.basket_items || []);
+        setMealPlan(data.meal_plan?.meals || []);
         setBasketState('review');
         
         if (notificationsEnabled) {
@@ -63,7 +184,6 @@ function App() {
 
   const handleApprove = async () => {
     setBasketState('approving');
-    
     try {
       await fetch(`http://${window.location.hostname}:8000/api/v1/cart/approve?user_id=1&store_name=${encodeURIComponent(selectedStore)}`, {
         method: 'POST'
@@ -78,7 +198,6 @@ function App() {
   };
 
   const handleRefreshSingleMeal = async (day) => {
-    setLoadingMealDay(day);
     try {
       const response = await fetch(`http://${window.location.hostname}:8000/api/v1/generate_single_meal?day=${encodeURIComponent(day)}&user_id=1&store_name=${encodeURIComponent(selectedStore)}`, {
         method: 'POST'
@@ -86,7 +205,6 @@ function App() {
       if (response.ok) {
         const data = await response.json();
         if (data.status === "success") {
-           // Swap the old meal with the newly generated meal
            setMealPlan(prev => prev.map(m => m.day === day ? data.meal : m));
         }
       } else {
@@ -95,13 +213,12 @@ function App() {
     } catch (err) {
        console.error("Network error while swapping meal", err);
     }
-    setLoadingMealDay(null);
   };
 
   return (
     <div className="glass-panel app-container">
       
-      {!notificationsEnabled && (
+      {!notificationsEnabled && basketState === 'idle' && (
         <div className="notification-banner" onClick={enableNotifications} style={{cursor: 'pointer'}}>
           <BellRing size={16} /> Enable Push Notifications for updates
         </div>
@@ -140,7 +257,7 @@ function App() {
           <div className="loader"></div>
           <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem', textAlign: 'center' }}>
              Deploying Chrome Symbiote <br/>
-             <span style={{fontSize: '0.8rem', opacity: 0.7}}>Scraping live prices from Tesco.com...</span>
+             <span style={{fontSize: '0.8rem', opacity: 0.7}}>Scraping live prices from {selectedStore}...</span>
           </p>
         </div>
       )}
@@ -150,83 +267,59 @@ function App() {
           <div className="loader"></div>
           <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem', textAlign: 'center'}}>
              Math engine calculating optimum macros...<br/>
-             <span style={{fontSize: '0.8rem', opacity: 0.7}}>Generating 7-day algorithmic recipes</span>
+             <span style={{fontSize: '0.8rem', opacity: 0.7}}>Generating 7-day visual recipes</span>
           </p>
         </div>
       )}
 
-      {basketState === 'review' && basketData && (
+      {basketState === 'review' && basketSummary && (
         <div>
-          <div className="stat-grid">
+          <div className="stat-grid" style={{ marginBottom: '1rem' }}>
             <div className="stat-box">
-              <div className="stat-value">£{basketData.total_cost.toFixed(2)}</div>
+              <div className="stat-value">£{basketSummary.total_cost.toFixed(2)}</div>
               <div className="stat-label">Total Cost</div>
             </div>
             <div className="stat-box">
-              <div className="stat-value">{basketData.total_protein_grams.toFixed(0)}g</div>
+              <div className="stat-value">{basketSummary.total_protein_grams.toFixed(0)}g</div>
               <div className="stat-label">Protein</div>
             </div>
-            <div className="stat-box desktop-stat">
-              <div className="stat-value">{basketData.budget_utilized}</div>
-              <div className="stat-label">Budget Used</div>
-            </div>
+          </div>
+
+          {/* Collapsible Itemized Bill */}
+          <div style={{ marginBottom: '2rem', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
+             <div 
+                style={{ background: 'var(--accent-light)', padding: '0.75rem', display: 'flex', justifyContent: 'space-between', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}
+                onClick={() => setShowItemized(!showItemized)}
+             >
+                <span>View Itemized Basket Breakdown</span>
+                <Info size={16} color="var(--accent-base)" />
+             </div>
+             {showItemized && (
+                <div style={{ padding: '1rem', background: 'var(--bg-color)', maxHeight: '200px', overflowY: 'auto' }}>
+                   {basketItems.map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '0.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.2rem' }}>
+                         <span style={{ width: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.quantity}x {item.item_name}</span>
+                         <span style={{ fontWeight: 600 }}>£{item.selected_price.toFixed(2)}</span>
+                      </div>
+                   ))}
+                </div>
+             )}
           </div>
 
           {mealPlan && mealPlan.length > 0 && (
             <div style={{ marginBottom: '1.5rem' }}>
               <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dim)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                AI Generated Meal Plan
+                AI Generated Visual Protocol
               </div>
               <div className="meal-carousel">
                 {mealPlan.map((meal, idx) => (
-                  <div key={idx} className="meal-card" style={{ position: 'relative' }}>
-                    
-                    {loadingMealDay === meal.day ? (
-                      <div className="flex-center" style={{height: '100%'}}>
-                          <div className="loader"></div>
-                      </div>
-                    ) : (
-                      <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                          <span className="meal-day">{meal.day} • {meal.meal_type}</span>
-                          <button 
-                             onClick={() => handleRefreshSingleMeal(meal.day)}
-                             title="Swap this recipe"
-                             style={{ padding: '0.3rem', width: 'auto', background: 'transparent', color: 'var(--text-dim)', border: '1px solid var(--border-color)', borderRadius: '6px' }}
-                          >
-                             <RefreshCw size={14} />
-                          </button>
-                        </div>
-                        
-                        <div className="meal-title">{meal.recipe_name}</div>
-                        
-                        {/* Granular Stats */}
-                        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
-                           <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.2rem', color: 'var(--text-dim)'}}>
-                              <Clock size={12}/> {meal.prep_time_mins + meal.cooking_time_mins}m total
-                           </span>
-                           <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.2rem', color: 'var(--text-dim)'}}>
-                              <Scale size={12}/> {meal.total_weight_grams}g
-                           </span>
-                        </div>
-
-                        <div className="meal-desc">
-                            <ul style={{ paddingLeft: '1rem', margin: 0 }}>
-                                {meal.cooking_instructions?.slice(0, 3).map((step, sIdx) => (
-                                    <li key={sIdx} style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>{step}</li>
-                                ))}
-                            </ul>
-                        </div>
-
-                        <div className="meal-ing-container">
-                          {meal.ingredients_used?.slice(0,4).map((ing, i) => (
-                            <span key={i} className="meal-ing">{ing.split(' ')[0]}</span>
-                          ))}
-                          {meal.ingredients_used?.length > 4 && <span className="meal-ing">+{meal.ingredients_used.length - 4} items</span>}
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  <MealCard 
+                     key={idx} 
+                     meal={meal} 
+                     index={idx}
+                     handleRefreshSingleMeal={handleRefreshSingleMeal}
+                     basketDataItems={basketItems}
+                  />
                 ))}
               </div>
             </div>

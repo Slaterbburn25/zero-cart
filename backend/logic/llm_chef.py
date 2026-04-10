@@ -8,6 +8,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # We strictly define the JSON output schema we want Gemini to return
+class IngredientUsage(BaseModel):
+    item_name: str = Field(description="The exact item name from the user's basket")
+    quantity_used: float = Field(description="The numeric quantity fraction or integer used in this meal")
+
 class Meal(BaseModel):
     day: str = Field(description="Day of the week, e.g., Monday")
     meal_type: str = Field(description="Breakfast, Lunch, or Dinner")
@@ -17,7 +21,7 @@ class Meal(BaseModel):
     total_weight_grams: int = Field(description="Estimated total weight of the meal in grams")
     number_of_ingredients: int = Field(description="Total count of discrete ingredients used")
     cooking_instructions: List[str] = Field(description="Detailed step-by-step cooking instructions")
-    ingredients_used: List[str] = Field(description="List of ingredients used from the provided basket ONLY")
+    ingredients_used: List[IngredientUsage] = Field(description="List of exact ingredients used and amounts")
 
 class WeeklyPlan(BaseModel):
     meals: List[Meal] = Field(description="A list of generated meals for the entire week")
@@ -97,5 +101,30 @@ def generate_single_recipe(day: str, basket: List[Dict[str, Any]]) -> dict:
         import json
         meal_json = json.loads(response.text)
         return {"status": "success", "meal": meal_json}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+def generate_dish_image(recipe_name: str) -> dict:
+    """Uses Imagen to generate a base64 encoded picture of the meal."""
+    import base64
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key or api_key == "YOUR_API_KEY_HERE":
+        return {"status": "error", "message": "GEMINI_API_KEY is not set"}
+
+    client = genai.Client(api_key=api_key)
+    try:
+        response = client.models.generate_images(
+            model='imagen-3.0-generate-001',
+            prompt=f"A beautiful, high-quality, perfectly plated appetizing food photography shot of a dish called: {recipe_name}",
+            config=types.GenerateImagesConfig(
+                number_of_images=1,
+                output_mime_type="image/jpeg",
+                aspect_ratio="1:1"
+            )
+        )
+        if response.generated_images:
+            img_b64 = base64.b64encode(response.generated_images[0].image.image_bytes).decode('utf-8')
+            return {"status": "success", "image_base64": img_b64}
+        return {"status": "error", "message": "No image generated"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
