@@ -20,12 +20,7 @@ export default function OnboardingWorkflow({ storePreference, onSaveStore, onTra
           <h3 style={{ fontSize: '1rem', color: 'var(--text-dim)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '1px' }}>1. Supply Chain Origin</h3>
           
           <div className="store-toggle">
-            <div 
-              className={`store-option ${selectedStore === 'Tesco Live' ? 'active' : ''}`}
-              onClick={() => setSelectedStore('Tesco Live')}
-            >
-              Tesco
-            </div>
+
             <div 
               className={`store-option ${selectedStore === 'Iceland Live' ? 'active' : ''}`}
               onClick={() => setSelectedStore('Iceland Live')}

@@ -125,21 +125,37 @@ export default function App() {
             body: JSON.stringify({ email, password })
         });
         
+        if (!res.ok) {
+            let errorText;
+            try {
+                const errJson = await res.json();
+                errorText = errJson.detail || JSON.stringify(errJson);
+            } catch(e) {
+                errorText = await res.text();
+            }
+            setTrainingLogs([`[ERROR] Server Error: HTTP ${res.status} - ${errorText}`]);
+            setIsTraining(false);
+            return;
+        }
+        
         if (!res.body) throw new Error("ReadableStream not supported.");
         
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let finalTasteProfile = null;
         let isError = false;
+        let buffer = '';
         
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n\n');
+            buffer += decoder.decode(value, { stream: true });
+            const parts = buffer.split('\n\n');
+            buffer = parts.pop(); // Keep the last incomplete chunk in the buffer!
             
-            for (const line of lines) {
+            for (const part of parts) {
+                const line = part.trim();
                 if (line.startsWith('data: ')) {
                     try {
                         const data = JSON.parse(line.substring(6));
@@ -154,9 +170,7 @@ export default function App() {
                             setTrainingLogs(prev => [...prev, '[Backend] Taste Profile saved successfully!']);
                         }
                     } catch (e) {
-                        // Incomplete chunk, will be handled by stream buffering natively in most cases, 
-                        // but a simple split might break across chunks if not careful.
-                        // For our simple logs, it's usually fine.
+                        console.error("Failed to parse SSE line:", line, e);
                     }
                 }
             }
@@ -268,12 +282,31 @@ export default function App() {
     );
   }
 
-  const prefs = userProfile?.preferences || {};
-  const hasStore = !!prefs.store_preference;
-  const hasTasteProfile = !!prefs.taste_profile;
+  const handleRetrainAgent = async () => {
+      if (!window.confirm("Are you sure you want to wipe the agent's memory and restart the extraction demo?")) return;
+      try {
+          const token = await firebaseUser.getIdToken();
+          const prefs = { ...(userProfile?.preferences || {}) };
+          delete prefs.taste_profile;
+          
+          const res = await fetch(`${API_BASE}/api/v1/user/${firebaseUser.uid}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ preferences: prefs })
+          });
+          
+          if (res.ok) {
+              setUserProfile(prev => ({ ...prev, preferences: prefs }));
+              setMealPlan(null);
+          }
+      } catch (e) {
+          console.error("Failed to reset agent", e);
+      }
+  };
 
-  // Enforce the Setup Flow
-  const isOnboarding = !hasStore || !hasTasteProfile;
+  const prefs = userProfile?.preferences || {};
+  const hasTasteProfile = !!prefs?.taste_profile;
+  const isOnboarding = !hasTasteProfile;
 
   return (
     <ErrorBoundary>
@@ -295,6 +328,11 @@ export default function App() {
           />
         ) : (
           <div className="hub-container">
+             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                 <button onClick={handleRetrainAgent} className="btn-outline" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', borderColor: 'var(--text-dim)', color: 'var(--text-dim)' }}>
+                     ↻ Retrain Assistant
+                 </button>
+             </div>
              <TasteProfileDNA profile={prefs.taste_profile} />
              
              {!mealPlan ? (

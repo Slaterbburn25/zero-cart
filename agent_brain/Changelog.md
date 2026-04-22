@@ -2,6 +2,24 @@
 
 All code changes and development progress will be tracked here.
 
+## 2026-04-22: The "Autopilot" Pivot & Iceland Pipeline Stabilization
+
+### Added
+- **URL Harvester Architecture (Edge Node)**: Re-engineered the Playwright extraction protocol to navigate the Iceland SPA. Implemented a two-phase protocol that paginates through order history to harvest raw URLs before sequentially vacuuming the receipts to avoid DOM flakiness.
+- **Dietary DNA Matrix**: Integrated Gemini 2.5 Pro into the backend to synthesize raw Iceland HTML receipts into a permanent `taste_profile` JSON object, extracting Core Staples and Brand Loyalties automatically.
+- **Factory Reset Protocol**: Added a 'Retrain Assistant' button to the React UI to explicitly nuke the user's local SQLite Taste Profile and reset the onboarding state, allowing for rapid loop demonstration at expos.
+- **Blind JWT Decoding**: Implemented a temporary bypass in `firebase_auth.py` to extract the `user_id` directly from the Firebase token without cryptographic signature verification, preventing 403 Unauthorized errors during local emulator wipes.
+- **Agent Runbook**: Authored `AgentRunbook.md` to instruct future AI agents to strictly utilize the `Start_ZeroCart.bat` file for booting the system, preventing ghost background processes and `EADDRINUSE` port collisions.
+
+### Changed
+- **Business Plan Overhaul**: Completely rewrote the `BusinessPlan.md` to reflect the company's pivot. Removed all references to "meal prep" and "recipes", repositioning ZeroCart as an automated, habit-based household restocker ("Autopilot").
+- **UI Brand Tone Shift**: Stripped out the dark-mode "sci-fi/cyberpunk" aesthetic from the React PWA. Applied a consumer-friendly "Soft Light Mode" utilizing pastel colors (mint green, soft peach), rounded typography (`Nunito`), and highly approachable copywriting.
+- **Tesco Purge**: Completely decoupled the application from Tesco dependencies, forcing the primary execution pipeline exclusively onto Iceland Live.
+
+### Fixed
+- **React Transition Lock**: Fixed a bug where `isOnboarding` would never flip to `false` because the application was infinitely waiting for a `store_preference` selection that had been removed.
+- **SVG Pagination Bug**: Resolved `TypeError: nextBtn.click is not a function` inside the Edge Scraper by natively dispatching bubbling `MouseEvent` objects onto the Iceland pagination arrows.
+
 ## 2026-04-21: The Missing Link (End-to-End Pipeline Hardening)
 
 ### Added

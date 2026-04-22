@@ -205,9 +205,13 @@ def train_agent_history(payload: TrainPayload, uid: str = Depends(get_current_us
     
     user = db.query(models.User).filter(models.User.id == uid).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
+        # Auto-heal the SQLite DB if the user has a valid Firebase token but their local record was wiped
+        user = models.User(id=uid, email=payload.email, preferences={})
+        db.add(user)
+        db.commit()
+        db.refresh(user)
         
-    store = user.preferences.get("store_preference", "Tesco Live") if user.preferences else "Tesco Live"
+    store = user.preferences.get("store_preference", "Iceland Live") if user.preferences else "Iceland Live"
     
     def event_stream():
         try:

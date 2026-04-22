@@ -17,10 +17,23 @@ export default function AuthGate({ onAuthSuccess }) {
     setError('');
     try {
       if (isLogin) {
-        const cred = await signInWithEmailAndPassword(auth, email, password);
-        onAuthSuccess(cred.user);
+        try {
+            const cred = await signInWithEmailAndPassword(auth, email, password);
+            console.log('Logged in:', cred.user.uid);
+            onAuthSuccess(cred.user);
+        } catch (innerErr) {
+            if (innerErr.code === 'auth/user-not-found') {
+                console.log('User not found, auto-registering instead for frictionless demo...');
+                const cred = await createUserWithEmailAndPassword(auth, email, password);
+                console.log('Auto-registered:', cred.user.uid);
+                onAuthSuccess(cred.user);
+            } else {
+                throw innerErr;
+            }
+        }
       } else {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
+        console.log('Registered:', cred.user.uid);
         onAuthSuccess(cred.user);
       }
     } catch (err) {

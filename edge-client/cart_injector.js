@@ -2,6 +2,21 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
+/* * =================================================================
+ * WEBMCP / MCP SERVER SKELETON (THE FUTURE OF THE EDGE NODE)
+ * =================================================================
+ * Once Iceland/Tesco support WebMCP, this Playwright logic shifts 
+ * from 'Brute Force Scraper' to 'Standardized Tool Provider'.
+ * * const server = new McpServer({
+ * name: "ZeroCart_Edge_Executor",
+ * version: "1.0.0"
+ * });
+ * * server.tool("add_to_basket", { sku: z.string() }, async ({ sku }) => {
+ * // Move logic from current search/click loops into this tool call
+ * });
+ * =================================================================
+ */
+
 const PAYLOAD_FILE = path.join(__dirname, 'pending_inject.json');
 
 async function injectCart() {

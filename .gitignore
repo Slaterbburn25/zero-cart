@@ -23,3 +23,9 @@ Thumbs.db
 # IDEs
 .idea/
 .vscode/
+
+edge-client/zerocart_chrome_profile/
+scratch/
+*.log
+edge-client/test_login.js
+edge-client/iceland_error.png

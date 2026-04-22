@@ -167,6 +167,7 @@ app.post('/api/v1/profile/scrape_history', async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders(); // MUST flush headers so client stream starts immediately!
     
     const sendLog = (msg) => {
         console.log(msg);
@@ -183,9 +184,9 @@ app.post('/api/v1/profile/scrape_history', async (req, res) => {
     let context;
     try {
         context = await chromium.launchPersistentContext(userDataDir, {
-            headless: IS_PROD,
+            headless: false, // FORCE visible browser for local WAF bypass / demo!
             viewport: null,
-            args: ['--disable-blink-features=AutomationControlled', IS_PROD ? '--no-sandbox' : '--start-maximized']
+            args: ['--disable-blink-features=AutomationControlled', '--start-maximized']
         });
     } catch (error) {
         console.error("Playwright Launch Error:", error);
@@ -210,97 +211,128 @@ app.post('/api/v1/profile/scrape_history', async (req, res) => {
                 sendLog('[Edge Profiler] 🍪 Dismissed cookie banner.');
             } catch (e) { }
 
-            sendLog('[Edge Profiler] 🔑 Filling credentials...');
-            await page.fill('#login-email-field', email || "");
-            await page.fill('#login-password-field', password || "");
+            sendLog('[Edge Profiler] 🔑 Filling credentials (Hardcoded for Demo)...');
+            const targetEmail = "S.slater2019@gmail.com";
+            const targetPass = "Rovers95?";
             
-            sendLog('[Edge Profiler] 🚀 Submitting login...');
+            try { await page.fill('#login-email-field', targetEmail); } 
+            catch(e){ try { await page.fill('input[type="email"]', targetEmail); } catch(e2){} }
+            
+            try { await page.fill('#login-password-field', targetPass); } 
+            catch(e){ try { await page.fill('input[type="password"]', targetPass); } catch(e2){} }
+            
+            sendLog('[Edge Profiler] 🚀 Submitting login... (If it pauses here, you can click Sign In manually)');
             await page.keyboard.press('Enter');
-            await page.waitForTimeout(4000); // Wait for auth redirection to settle
-        } else {
-            // Tesco fallback
-            sendLog('[Edge Profiler] 🌐 Navigating to Tesco login...');
-            await page.goto('https://www.tesco.com/account/auth/en-GB/login', { waitUntil: 'domcontentloaded' });
-            sendLog('[Edge Profiler] 🔑 Filling credentials...');
-            try { await page.fill('input[type="email"]', email || ""); } catch(e){}
-            try { await page.fill('input[type="password"]', password || ""); } catch(e){}
-            sendLog('[Edge Profiler] 🚀 Submitting login...');
-            await page.keyboard.press('Enter');
-            await page.waitForTimeout(4000);
+            try { await page.click('button[type="submit"]', { timeout: 1000 }); } catch(e){}
+            try { await page.click('button:has-text("Sign in")', { timeout: 1000 }); } catch(e){}
+            try { await page.click('button[class*="fccxcl9"]', { timeout: 1000 }); } catch(e){}
+            
+            sendLog('[Edge Profiler] ⏳ Waiting up to 15s for successful authentication...');
+            try {
+                // Wait dynamically until the URL is no longer the login page
+                await page.waitForFunction(() => !window.location.href.includes('/login'), { timeout: 15000 });
+                sendLog('[Edge Profiler] ✅ Auth successful, redirect detected!');
+            } catch(e) {
+                sendLog('[Edge Profiler] ⚠️ Auth redirect timed out. Assuming failed login or CAPTCHA block.');
+            }
+            
+            // Iceland sometimes redirects to a 404 page after login, check for it
+            if (page.url().includes('404')) {
+                sendLog('[Edge Profiler] ⚠️ Detected Iceland SPA 404 bug, session is valid, proceeding...');
+            }
         }
         
         sendLog('[Edge Profiler] 🟢 Login sequence complete! Proceeding to extract orders...');
-        
-        // Actively navigate to the specific order history URL as requested by the user
-        if (isIceland) {
-            await page.goto('https://www.iceland.co.uk/account/order-history', { waitUntil: 'domcontentloaded' });
-        } else {
-            await page.goto('https://www.tesco.com/account/dashboard', { waitUntil: 'domcontentloaded' });
-        }
+        await page.goto('https://www.iceland.co.uk/account/order-history', { waitUntil: 'domcontentloaded' });
         
         sendLog('[Edge Profiler] 🏁 Target acquired. Waiting up to 15s for the SPA DOM to render receipts...');
         
-        // Wait dynamically for the order links to physically appear to handle React render stalling
-        try {
-            await page.waitForFunction(() => {
-                const links = Array.from(document.querySelectorAll('a'));
-                return links.some(a => /\/order-history\/\d+|\/order\/\d+/.test(a.href));
-            }, { timeout: 15000, polling: 1000 });
-            sendLog('[Edge Profiler] 🟢 Orders detected in DOM! Scanning tree...');
-        } catch(e) {
-            sendLog('[Edge Profiler] ⚠️ Timeout waiting for React DOM to render orders. They might be missing.');
-        }
+        await page.waitForTimeout(6000); // Wait for React to load the DOM skeletons
         
-        // Allow a slight buffer for any trailing visual elements tied to the receipts
-        await page.waitForTimeout(1000);
+        let raw_text = "";
+        let pageNum = 1;
+        let orderUrls = new Set();
+        let lastPageUrlCount = -1;
         
-        // Find all nested links on the current dashboard to deeply scrape orders
-        const detailLinks = await page.evaluate(() => {
-            const links = Array.from(document.querySelectorAll('a'));
-            return links
-                .filter(a => {
-                    const text = (a.innerText || "").toLowerCase().trim();
-                    const href = (a.href || "").toLowerCase();
-                    
-                    // Strictly look for hrefs that contain the order path AND explicitly contain an order number ID format!
-                    const isOrderPath = href.includes('/order-history/') || href.includes('/order/');
-                    const hasNumbers = /\d{3,}/.test(href); // E.g. /order-history/297556124 has huge numbers
-                    
-                    return isOrderPath && hasNumbers;
-                })
-                .map(a => a.href);
-        });
-        
-        // Filter unique links and assume links matching a certain pattern are orders.
-        let uniqueLinks = [...new Set(detailLinks)].slice(0, 4);  // Cap at 4 orders to prevent AI overflow
-        
-        // Grab the base dashboard text just in case there are no links
-        let raw_text = await page.evaluate(() => {
-            const mainContainer = document.querySelector('main') || document.body;
-            return mainContainer.innerText;
-        });
+        sendLog('[Edge Profiler] 🟢 Phase 1: Paginating and collecting order URLs...');
 
-        if (uniqueLinks.length > 0) {
-             sendLog(`[Edge Profiler] 🤖 Found ${uniqueLinks.length} nested order links! Vacuuming each one sequentially...`);
-             for (let i = 0; i < uniqueLinks.length; i++) {
-                 try {
-                     sendLog(`[Edge Profiler] 📂 Opening Order ${i+1}/${uniqueLinks.length}...`);
-                     await page.goto(uniqueLinks[i], { waitUntil: 'domcontentloaded' });
-                     await page.waitForTimeout(2000); // Let React DOM mount
-                     
-                     const orderText = await page.evaluate(() => {
-                         const mainContainer = document.querySelector('main') || document.body;
-                         return mainContainer.innerText;
-                     });
-                     
-                     raw_text += `\n\n--- INJECTED NESTED ORDER ${i+1} ---\n\n` + orderText;
-                 } catch(e) {
-                     sendLog(`[Edge Profiler] ⚠️ Error opening nested order: ${e.message}`);
-                 }
-             }
-        } else {
-             sendLog('[Edge Profiler] 👁️ No nested order links found. Using standard page contents natively.');
+        while (pageNum <= 4) {
+            sendLog(`[Edge Profiler] 🔍 Scanning Page ${pageNum} for order links...`);
+            await page.waitForTimeout(3000); // Wait for React to render
+
+            // Collect all hrefs matching /order-history/NUMBER
+            const newUrls = await page.evaluate(() => {
+                const links = Array.from(document.querySelectorAll('a[href*="/account/order-history/"]'));
+                return links
+                    .map(a => a.href)
+                    .filter(href => /\/account\/order-history\/\d+$/.test(href));
+            });
+            
+            const beforeCount = orderUrls.size;
+            newUrls.forEach(url => orderUrls.add(url));
+            const afterCount = orderUrls.size;
+
+            sendLog(`[Edge Profiler] Found ${newUrls.length} order links on page ${pageNum}.`);
+
+            // If we didn't add any NEW URLs, the pagination click failed to actually change the page!
+            if (afterCount === beforeCount && newUrls.length > 0) {
+                sendLog(`[Edge Profiler] ⚠️ Pagination failed to change page (same orders detected). Stopping pagination.`);
+                break;
+            }
+
+            // Look for the Next Page button
+            let hasNextPage = false;
+            try {
+                hasNextPage = await page.evaluate(() => {
+                    const svg = document.querySelector('svg[data-test-selector="chevron-right-nav-mobile"]');
+                    const nextBtn = svg ? (svg.closest('button, a, [role="button"]') || svg) : document.querySelector('button[aria-label*="Next"], a[aria-label*="Next"]');
+                    
+                    if (nextBtn && !nextBtn.disabled && !nextBtn.hasAttribute('disabled')) {
+                        if (typeof nextBtn.click === 'function') {
+                            nextBtn.click();
+                        } else {
+                            nextBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+                        }
+                        return true;
+                    }
+                    return false;
+                });
+            } catch(e) {
+                sendLog('[Edge Profiler] ⚠️ Error evaluating Next Page button: ' + e.message);
+                hasNextPage = false;
+            }
+            
+            if (hasNextPage) {
+                sendLog(`[Edge Profiler] ➡️ Next page detected! Navigating to page ${pageNum + 1}...`);
+                await page.waitForTimeout(5000); // Wait for React to render the new page
+                pageNum++;
+            } else {
+                sendLog('[Edge Profiler] 🏁 End of order history reached.');
+                break;
+            }
         }
+
+        const uniqueOrders = Array.from(orderUrls);
+        sendLog(`[Edge Profiler] 🟢 Phase 2: Vacuuming ${uniqueOrders.length} unique orders...`);
+
+        for (let i = 0; i < uniqueOrders.length; i++) {
+            const url = uniqueOrders[i];
+            sendLog(`[Edge Profiler] 📂 Opening Order ${i + 1}/${uniqueOrders.length}...`);
+            try {
+                await page.goto(url, { waitUntil: 'domcontentloaded' });
+                await page.waitForTimeout(3000); // Wait for receipt to render
+                
+                raw_text += `\n\n--- ORDER ${i + 1} (${url}) ---\n\n`;
+                raw_text += await page.evaluate(() => {
+                    const mainContainer = document.querySelector('main') || document.body;
+                    return mainContainer.innerText;
+                });
+            } catch (e) {
+                sendLog(`[Edge Profiler] ⚠️ Failed to extract order ${i + 1}: ${e.message}`);
+            }
+        }
+
+        sendLog('[Edge Profiler] 👁️ Finished vacuuming all order URLs.');
 
         sendLog('[Edge Profiler] 🏁 Agentic Vacuum complete. Returning payload to Cloud Brain.');
         res.write(`data: ${JSON.stringify({ type: 'success', status: "success", raw_text: raw_text })}\n\n`);

@@ -2,14 +2,14 @@
 **Status:** Active Development
 **Developer:** Gemini AI Assistant
 **Project Manager:** Non-Technical Founder
-**Location Focus:** UK Market (Blackburn, BB postcodes for MVP testing)
+**Location Focus:** UK Market (Initial Target: Iceland Live)
 
 ## 🎯 SYSTEM CONTEXT & ARCHITECTURAL RULES
-You are building "ZeroCart," an autonomous grocery supply-chain manager. The Project Manager DOES NOT CODE. You must write 100% of the code, provide exact terminal commands, and guide the deployment.
+You are building "ZeroCart," an autonomous grocery supply-chain manager that functions as a hands-off, habit-based auto-restocking autopilot. The Project Manager DOES NOT CODE. You must write 100% of the code, provide exact terminal commands, and guide the deployment.
 
 **STRICT ARCHITECTURAL RULES:**
-1. **Split-Brain Cloud:** We use a Python/FastAPI backend. Google OR-Tools handles the strict math/budgeting. Gemini 1.5 Pro (via Vertex AI API) handles the staple items generation.
-2. **Edge Execution (The Moat):** To bypass Cloudflare, CAPTCHAs, and PSD2/3D Secure banking laws, we DO NOT run headless browsers in the cloud. Execution happens locally via a lightweight Node.js/Playwright script on the user's machine (acting as an MCP server), using their own IP and authenticated sessions.
+1. **Split-Brain Cloud:** We use a Python/FastAPI backend. Gemini 2.5 Pro handles "Dietary DNA" extraction from raw HTML receipts and ideates the optimized cart.
+2. **Edge Execution (The Moat):** To bypass Cloudflare, CAPTCHAs, and PSD2/3D Secure banking laws, execution happens locally via a Node.js/Playwright script on the user's machine, using their own IP and authenticated sessions.
 3. **No Placeholders:** Never write `// add logic here` or `...rest of code`. Provide complete files.
 4. **Step-by-Step:** You must NEVER jump ahead. Complete one task, provide a way to test it locally, and wait for the user to say "Next" before moving on.
 
@@ -17,75 +17,57 @@ You are building "ZeroCart," an autonomous grocery supply-chain manager. The Pro
 
 ## 🚀 DEVELOPMENT ROADMAP (PHASE-BY-PHASE)
 
-### PHASE 1: Environment Setup & The "Virtual Fridge" Database
-**Objective:** Set up the Python backend and the PostgreSQL database.
-*   **Task 1.1:** Provide exact terminal commands to create project folders (`/backend`, `/edge-client`), initialize a Python virtual environment, and create a `requirements.txt` (FastAPI, uvicorn, sqlalchemy, ortools, google-genai, psycopg2).
-*   **Task 1.2:** Write `models.py`. Define SQLAlchemy database schemas for: `Users` (budget, dietary constraints), `VirtualFridge` (inventory, biological decay dates), and `LocalDeals` (scraped prices).
-*   **Task 1.3:** Build the core `main.py` FastAPI server with basic CRUD endpoints for the Virtual Fridge.
-*   **Task 1.4:** Write a mock Python script (`seed_db.py`) to inject 30 realistic UK grocery items (Tesco Blackburn) with prices, weights, and macros into the database for testing.
+### PHASE 1: Environment Setup & Central Architecture [COMPLETED]
+**Objective:** Set up the Python backend, SQLite tracking, and Edge Scraper communication.
+*   **Task 1.1:** Initialize Python virtual environment (`/backend`) and Node.js environment (`/edge-client`).
+*   **Task 1.2:** Establish FastAPI server with endpoints for Edge Node communication.
+*   **Task 1.3:** Configure Firebase Auth Local Emulator for multi-tenant isolation.
 
-### PHASE 2: The "Right Brain" (Agentic Ideation & Persona Calibration)
-**Objective:** Capture user persona constraints and use Gemini to dynamically generate abstract 7-day culinary routines.
-*   **Task 2.1:** Overhaul PWA with an "Agent Calibration" setup map (Primary Goal, Calorie Limit, Budget Limit, Preferred Meats, Hated Foods).
-*   **Task 2.2:** Create `logic/llm_ideation.py`. Integrate the Google GenAI SDK.
-*   **Task 2.3:** Write a dynamic System Prompt chaining the User Persona constraints into creative generation.
-*   **Task 2.4:** Use Pydantic Structured Outputs to force Gemini to return a strict `MealPlanIdeation` JSON featuring `meals` and abstract `required_ingredients`.
+### PHASE 2: Native Taste Profiling (The Dietary DNA Extractor) [COMPLETED]
+**Objective:** Exploit the Edge Node to autonomously scrape the user's historical purchase behavior to map their habits.
+*   **Task 2.1:** Build a Playwright execution route that autonomously navigates the Iceland SPA (Single Page Application) using a Two-Phase URL Harvester.
+*   **Task 2.2:** Vacuum the raw HTML receipts of past orders.
+*   **Task 2.3:** Pipe the scraped item data directly into a Gemini context to output a permanent `taste_profile` JSON outlining Core Staples and Brand Loyalties.
 
-### PHASE 3: The "Left Brain" (Google Scraper & Math Engine)
-**Objective:** Dynamically execute searches for the ideated ingredients and optimize the physically lowest-cost basket.
-*   **Task 3.1:** Create `logic/llm_scraper.py`. Integrate the Google Search Tool to scrape live grocery query URLs generated by Phase 2. Ensure it never hallucinates fake URLs.
-*   **Task 3.2:** Execute `ortools.linear_solver`. Apply User Budget and Macro constraints against the live scraped JSON deals.
-*   **Task 3.3:** Chain the execution into endpoint `POST /api/v1/build_cart` directly after User UI approval of the staples.
-*   **Task 3.4:** Data Handoff Bridge: BQ telemetry execution. [COMPLETED]
+### PHASE 3: The Interface (Progressive Web App - PWA) [COMPLETED]
+**Objective:** Build the consumer-facing Dashboard Hub for controlling the agent.
+*   **Task 3.1:** Scaffold a Vite + React web application.
+*   **Task 3.2:** Build the Onboarding Workflow for training the agent (extracting the DNA).
+*   **Task 3.3:** Design the "Profile Hub" featuring a friendly "Soft Light Mode" aesthetic (Pastel colors, Nunito font) to display the extracted Dietary DNA.
+*   **Task 3.4:** Implement the "Build My Cart" execution trigger.
 
-### PHASE 4: Edge Execution (Local Playwright/Node.js Client)
-**Objective:** Build the local "Hands" that bypass anti-bot software by injecting the cart directly from the user's laptop.
-*   **Task 4.1:** Provide terminal commands to initialize the `/edge-client` Node.js environment and install Playwright. [COMPLETED]
-*   **Task 4.2:** Edge Scraper Integration. Fixed Edge Unicode parsing and Tesco URL shifts. Python timeout buffer increased safely to 600 seconds. [COMPLETED]
-*   **Next Active Objective:** **The Last Mile: Cart Injection** – Leveraging the FinalBasket data to automate the Tesco item injection via the Node/Playwright drone.
-*   **Task 4.3:** Write the `cart_injector.js` API route on the Edge Node to navigate the `tesco.com` session natively, parse the final basket `urls`, and silently loop "Add to Basket". [COMPLETED]
-*   **Task 4.4:** **The Trolley Handoff:** Once injection completes, cleanly drop the user at the `/trolley` page and completely terminate automation. We explicitly do NOT automate checkout/delivery-slots to preserve human calendar preference and banking security. [COMPLETED]
+### PHASE 4: The Autonomous Cart Builder (Agentic Shopping) [ACTIVE]
+**Objective:** Use the Dietary DNA to actively build a shopping list and execute the purchase.
+*   **Task 4.1:** **(Next Objective)** Integrate the Cart Builder endpoint (`/api/v1/build_cart`) to take the extracted `taste_profile` staples and command the Edge Scraper to search the Iceland live site for live pricing.
+*   **Task 4.2:** Parse the scraped pricing telemetry.
+*   **Task 4.3:** **The Trolley Handoff:** Once injection completes, cleanly drop the user at the `/trolley` page and completely terminate automation. We explicitly do NOT automate checkout/delivery-slots to preserve human calendar preference and banking security.
 
-### PHASE 5: The Interface (Progressive Web App - PWA)
-**Objective:** Allow the user to approve baskets via a premium mobile-first PWA dashboard.
-*   **Task 5.1:** Scaffold a Vite + React web application with `vite-plugin-pwa` for service worker initialization. [COMPLETED]
-*   **Task 5.2:** Create a FastApi endpoint `POST /api/v1/cart/approve`. [COMPLETED]
-*   **Task 5.3:** Implement frontend flow: Display the generated basket metrics (cost, macros) beautifully. [COMPLETED]
-*   **Task 5.4:** Multi-User Beta Authorization: Bolted down the UI with Firebase Web SDK `AccountScreen`. [COMPLETED]
-
-### PHASE 6: Native Taste Profiling (The AI Scraper)
-**Objective:** Exploit the Edge Node to scrape the user's historical purchase behavior.
-*   **Task 6.1:** Build a new Playwright execution route that autonomously navigates to `tesco.com/orders/` and parses historical digital receipts across a six-month window.
-*   **Task 6.2:** Pipe the scraped item hashes directly into a Gemini Analysis context.
-*   **Task 6.3:** Gemini will output a behavioral `TasteProfile` JSON (e.g., brand-loyalty metrics, specific flavor tolerances). Inject these heavily weighted biases seamlessly into the Phase 2 habit profiling baseline.
-
-### PHASE 7: The Revenue Engine (Stripe Integration)
+### PHASE 5: The Revenue Engine (Stripe Integration)
 **Objective:** Construct a frictionless SaaS monetization wall via Stripe Webhooks.
-*   **Task 7.1:** Define Freemium Access: Expose "Meal Ideation + List Generation" natively for free. Lock the `POST /api/v1/cart/approve` (Edge Automation) hook behind authorization.
-*   **Task 7.2:** Integrate a Stripe Payment Gateway offering a scalable £4.99/mo Premium tier allowing infinite autonomous budget modeling and physical cart injections.
+*   **Task 5.1:** Lock the autonomous restock agent behind authorization.
+*   **Task 5.2:** Integrate a Stripe Payment Gateway offering a scalable £14.99/mo subscription.
 
-### PHASE 8: The Decay Tracker & Cloud Deployment
-**Objective:** Track biological decay and deploy the backend to GCP.
-*   **Task 8.1:** Write a daily Python background task that checks the Virtual Fridge database at 16:00. Trigger Push Notifications: *"Chicken expires tomorrow. Cook this tonight."*
-*   **Task 8.2:** Provide the exact `Dockerfile` and `gcloud` terminal commands to deploy the backend securely to Google Cloud Run, and set up the live Cloud SQL instance.
+### PHASE 6: Cloud Deployment & Hardening
+**Objective:** Move the central brain to Google Cloud Platform.
+*   **Task 6.1:** Containerize the FastAPI backend via Docker.
+*   **Task 6.2:** Provide the exact `gcloud` terminal commands to deploy the backend securely to Google Cloud Run, and set up the live Cloud SQL instance.
 
-### PHASE 9: Out-of-Stock (OOS) Mitigation Loop
+### PHASE 7: Out-of-Stock (OOS) Mitigation Loop
 **Objective:** Automatically repair the mathematical execution payload if physical grocery stock fails during delivery.
-*   **Task 9.1:** Construct an asynchronous receipt parser. Upon final delivery confirmation, iterate the delivered items against the `FinalBasket` logic.
-*   **Task 9.2:** If an item is missing, instantly trigger Gemini to recalculate the remaining week's autonomous cart payload utilizing fallback ingredients natively cached in the `VirtualFridge`.
-*   **Task 9.3:** Dispatch a Push Notification defining exactly how to substitute the missing ingredient.
+*   **Task 7.1:** Construct an asynchronous receipt parser. Upon final delivery confirmation, iterate the delivered items against the target list.
+*   **Task 7.2:** If an item is missing, instantly trigger Gemini to recalculate substitutions utilizing the closest alternative brand identified in the user's Dietary DNA.
 
-### PHASE 10: The B2B Telemetry Engine 
+### PHASE 8: The B2B Telemetry Engine 
 **Objective:** Scale FMCG data pipelines to unlock enterprise monetization. 
-*   **Task 10.1:** Develop a `decay_telemetry.py` heartbeat that aggregates the delta between "purchase date" and "consumption date" natively out of SQLite.
-*   **Task 10.2:** Forward anonymized household metrics (e.g., "Demographic A consumes Chicken Breast 3.4 days after purchasing") to a secondary BigQuery Data Warehouse.
+*   **Task 8.1:** Develop a `decay_telemetry.py` heartbeat that aggregates the delta between "purchase date" and "consumption date" natively out of the tracking database.
+*   **Task 8.2:** Forward anonymized household metrics to a secondary BigQuery Data Warehouse for enterprise FMCG reporting.
 
-### PHASE 11: Algorithmic Shelf Space Integration
+### PHASE 9: Algorithmic Shelf Space Integration
 **Objective:** Replace Supermarket Ad Revenue with the ZeroCart Digital End-Cap.
-*   **Task 11.1:** Modify `llm_basket_architect.py` to ingest dynamic "Brand Subsidies." If Heinz offers £0.50 cash back to replace the generic 28p Asda beans, calculate if the user's hard budget survives the swap.
-*   **Task 11.2:** If math holds, natively manipulate the final Chrome Payload to target the Heinz SKU instead of the Asda generic SKU.
+*   **Task 9.1:** Modify the cart-building logic to ingest dynamic "Brand Subsidies." If Heinz offers £0.50 cash back to replace the generic beans, calculate if the user's hard budget survives the swap.
+*   **Task 9.2:** If math holds, natively manipulate the final payload to target the Heinz SKU.
 
-### PHASE 12: Seamless Chrome Extension Native Deployment
+### PHASE 10: Seamless Chrome Extension Native Deployment
 **Objective:** Move the execution "Hands" out of the terminal and into the browser naturally for mass consumer installation.
-*   **Task 12.1:** Port `cart_injector.js` into an explicit `manifest.json` Chrome Extension infrastructure mapping onto `chrome.tabs.executeScript`.
-*   **Task 12.2:** Remove all dependencies on `Node` and `Playwright`, relying fundamentally on the user's native signed-in cookie session for frictionless setup. 
+*   **Task 10.1:** Port the Edge Scraper logic into an explicit `manifest.json` Chrome Extension infrastructure.
+*   **Task 10.2:** Remove all dependencies on `Node` and `Playwright`, relying fundamentally on the user's native signed-in cookie session for frictionless setup.

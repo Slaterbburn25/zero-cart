@@ -5,6 +5,24 @@ from google.genai import types
 from pydantic import BaseModel, Field
 from typing import List, Dict
 
+# =================================================================
+# FUTURE-PROOFING: WEBMCP & UCP AGENTIC WRAPPERS (STAY VIGILANT)
+# =================================================================
+# class UCP_Intent_Schema(BaseModel):
+#     """Standardized Universal Checkout Protocol for Google/Gemini Handoff"""
+#     retailer_id: str = "iceland_uk"
+#     currency: str = "GBP"
+#     line_items: list[dict] # {sku, qty, ucp_action: "ADD"}
+#     handoff_url: str = "https://www.iceland.co.uk/checkout/trolley"
+
+# @mcp_tool_decorator (Wait for official Vertex/WebMCP SDK)
+# def search_iceland_inventory_mcp(query: str):
+#     """
+#     When WebMCP goes live, this replaces our 'Scraper-First' logic.
+#     The Agent will call this tool NATIVELLY to browse.
+#     """
+#     pass 
+# =================================================================
 # The expected output schema
 class BasketAllocation(BaseModel):
     sku: str = Field(description="The exact SKU string of the item to purchase.")
