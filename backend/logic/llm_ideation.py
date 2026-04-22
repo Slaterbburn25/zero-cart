@@ -35,14 +35,21 @@ def ideate_weekly_plan(user) -> dict:
     
     client = genai.Client(api_key=api_key)
 
+    prefs = user.preferences or {}
     system_instruction = (
         f"You are ZeroCart's Master Chef AI. Your job is exclusively to brainstorm a 7-day meal plan based on the user's Persona. "
-        f"CRITICAL: For each of the 7 days, you must generate exactly the following meal categories: {user.meal_types_wanted}. "
-        f"Each meal MUST proportion enough food to comfortably serve {user.family_size} person/people! "
-        f"The user's primary dietary goal is: {user.primary_goal}. All meals should be aligned toward this target. "
-        f"The user prefers these proteins/meats: {user.preferred_meats}. Try to feature them prominently alongside necessary vegetables. "
-        f"The user absolutely HATES these foods: {user.hated_foods}. NEVER include anything related to these anywhere in your recipes! "
-        f"Any strict general constraints: {user.dietary_constraints}. "
+        f"CRITICAL: For each of the 7 days, you must generate exactly the following meal categories: {prefs.get('meal_types_wanted', 'Dinner')}. "
+        f"Each meal MUST proportion enough food to comfortably serve {prefs.get('family_size', 1)} person/people! "
+        f"The user's primary dietary goal is: {prefs.get('primary_goal', 'Balanced')}. All meals should be aligned toward this target. "
+        f"The user prefers these proteins/meats: {prefs.get('preferred_meats', 'Any')}. Try to feature them prominently alongside necessary vegetables. "
+        f"The user absolutely HATES these foods: {prefs.get('hated_foods', 'none')}. NEVER include anything related to these anywhere in your recipes! "
+        f"Any strict general constraints: {prefs.get('dietary_constraints', 'none')}. "
+    )
+    
+    taste_profile = prefs.get('taste_profile')
+    taste_string = f"CRITICAL BEHAVIORAL DATA: The user has an explicit Historic Taste Profile derived from actual past grocery receipts: {json.dumps(taste_profile)}. HEAVILY bias your recipe generation to align natively with these specific brand loyalties, dietary assumptions, and staple ingredients! " if taste_profile else ""
+    
+    system_instruction += taste_string + (
         "DREAM UP amazing recipes! Be highly creative but adhere to the above persona rules. "
         "Crucially, you must build an aggregated abstract 'required_ingredients' list unifying everything needed to cook these 7 days of meals. "
         "Keep the 'query' strings generic enough for a supermarket search (e.g. 'Beef Mince', 'Cheddar Cheese', 'Spaghetti')."
@@ -82,16 +89,22 @@ def ideate_single_meal(day: str, user) -> dict:
         return {"status": "error", "message": "API KEY not set"}
     
     client = genai.Client(api_key=api_key)
+    prefs = user.preferences or {}
     system_instruction = (
         f"You are ZeroCart's Master Chef AI. "
         f"The user wants a completely new set of meals for {day}. "
-        f"Generate {user.meal_types_wanted} exclusively for {day}. "
-        f"The user's primary dietary goal is: {user.primary_goal}. "
-        f"The user prefers these proteins/meats: {user.preferred_meats}. "
-        f"The user absolutely HATES these foods: {user.hated_foods}. NEVER include anything related to these! "
-        f"Any strict general constraints: {user.dietary_constraints}. "
+        f"Generate {prefs.get('meal_types_wanted', 'Dinner')} exclusively for {day}. "
+        f"The user's primary dietary goal is: {prefs.get('primary_goal', 'Balanced')}. "
+        f"The user prefers these proteins/meats: {prefs.get('preferred_meats', 'Any')}. "
+        f"The user absolutely HATES these foods: {prefs.get('hated_foods', 'none')}. NEVER include anything related to these! "
+        f"Any strict general constraints: {prefs.get('dietary_constraints', 'none')}. "
         f"Also provide the required abstract ingredients needed just for these alternative meals."
     )
+    
+    taste_profile = prefs.get('taste_profile')
+    taste_string = f" CRITICAL BEHAVIORAL DATA: The user has an explicit Historic Taste Profile derived from actual past grocery receipts: {json.dumps(taste_profile)}. HEAVILY bias your alternative recipes to align natively with these traits! " if taste_profile else ""
+    
+    system_instruction += taste_string
     
     try:
         response = client.models.generate_content(

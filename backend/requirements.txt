@@ -4,3 +4,5 @@ sqlalchemy
 ortools
 google-genai
 pydantic
+firebase-admin
+python-dotenv

@@ -4,11 +4,18 @@ from sqlalchemy.orm import Session
 from datetime import date
 from typing import List
 from pydantic import BaseModel
+
+class TrainPayload(BaseModel):
+    email: str
+    password: str
 import os
 import subprocess
 
+EDGE_SCRAPER_URL = os.getenv("EDGE_SCRAPER_URL", "http://127.0.0.1:8001")
+
 # Internal imports
 from models import SessionLocal, VirtualFridge
+from firebase_auth import get_current_user
 
 app = FastAPI(
     title="ZeroCart API", 
@@ -45,8 +52,7 @@ class FridgeItemCreate(BaseModel):
 class FridgeItemResponse(FridgeItemCreate):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 # -----------------
 # API ENDPOINTS
@@ -86,77 +92,230 @@ def remove_from_fridge(item_id: int, db: Session = Depends(get_db)):
 
 # Legacy endpoint removed. Now handled dynamically inside build_cart.
 
+class UserCreate(BaseModel):
+    email: str
+    postcode: str = "BB1 1AA"
+    preferences: dict = {}
+
 class UserProfileUpdate(BaseModel):
-    weekly_budget: float | None
-    calorie_limit: int | None
-    family_size: int
-    meal_types_wanted: str
-    preferred_store: str
-    primary_goal: str
-    preferred_meats: str
-    hated_foods: str
+    postcode: str | None = None
+    preferences: dict | None = None
+
+@app.post("/api/v1/user/create")
+def create_user(user: UserCreate, uid: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Creates a new user with dedicated pricing and profile isolation."""
+    import models
+    from sqlalchemy.exc import IntegrityError
+    
+    # Check if user already exists
+    existing_user = db.query(models.User).filter(models.User.id == uid).first()
+    if existing_user:
+        return {"status": "success", "user": {"id": existing_user.id, "email": existing_user.email, "postcode": existing_user.postcode, "preferences": existing_user.preferences}}
+
+    db_user = models.User(
+        id=uid,
+        email=user.email,
+        postcode=user.postcode,
+        preferences=user.preferences
+    )
+    db.add(db_user)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        # In a local Firebase emulator environment, UIDs can be randomly recycled/orphaned.
+        # If the email matches a ghost user, we delete the ghost to unblock the new UID.
+        ghost_user = db.query(models.User).filter(models.User.email == user.email).first()
+        if ghost_user:
+            db.delete(ghost_user)
+            db.commit()
+            
+            # Try recreation with the new Firebase UID
+            db_user = models.User(id=uid, email=user.email, postcode=user.postcode, preferences=user.preferences)
+            db.add(db_user)
+            db.commit()
+        else:
+            raise HTTPException(status_code=400, detail="Database integrity collision.")
+            
+    db.refresh(db_user)
+    return {
+        "status": "success", 
+        "user": {
+            "id": db_user.id, 
+            "email": db_user.email, 
+            "postcode": db_user.postcode, 
+            "preferences": db_user.preferences
+        }
+    }
 
 @app.get("/api/v1/user/{user_id}")
-def get_user_profile(user_id: int, db: Session = Depends(get_db)):
+def get_user_profile(user_id: str, uid: str = Depends(get_current_user), db: Session = Depends(get_db)):
     import models
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user_id != uid:
+        raise HTTPException(status_code=403, detail='Unauthorized')
+    user = db.query(models.User).filter(models.User.id == uid).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return {
+        "id": user.id,
+        "email": user.email,
+        "postcode": user.postcode,
+        "preferences": user.preferences
+    }
 
-@app.put("/api/v1/user/1")
-def update_user_profile(profile: UserProfileUpdate, db: Session = Depends(get_db)):
-    """Mock edge node profile persistence handling advanced personas."""
+@app.put("/api/v1/user/{user_id}")
+def update_user_profile(user_id: str, profile: UserProfileUpdate, uid: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Dynamically updates JSON preferences without breaking schemas."""
     import models
-    user = db.query(models.User).filter(models.User.id == 1).first()
-    
-    # Instantiate singleton if empty
+    if user_id != uid:
+        raise HTTPException(status_code=403, detail='Unauthorized')
+    user = db.query(models.User).filter(models.User.id == uid).first()
     if not user:
-        user = models.User(
-            id=1, 
-            email="edge@zerocart.local"
-        )
-        db.add(user)
-        
-    user.weekly_budget = profile.weekly_budget
-    user.calorie_limit = profile.calorie_limit
-    user.family_size = profile.family_size
-    user.meal_types_wanted = profile.meal_types_wanted
-    user.preferred_store = profile.preferred_store
-    user.primary_goal = profile.primary_goal
-    user.preferred_meats = profile.preferred_meats
-    user.hated_foods = profile.hated_foods
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if profile.postcode is not None:
+        user.postcode = profile.postcode
+    if profile.preferences is not None:
+        user.preferences = profile.preferences
     
     db.commit()
-    return {"status": "success", "user": user}
-
-# -----------------
-# PIPELINE PHASE 1: IDEATION
-# -----------------
-
-@app.post("/api/v1/ideate")
-def ideate_meals(user_id: int, db: Session = Depends(get_db)):
-    """Generates pure Meal Ideas natively from nothing."""
-    from logic.llm_ideation import ideate_weekly_plan
-    import models
+    db.refresh(user)
     
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+    return {
+        "status": "success", 
+        "user": {
+            "id": user.id, 
+            "email": user.email, 
+            "postcode": user.postcode, 
+            "preferences": user.preferences
+        }
+    }
+
+# -----------------
+# PIPELINE PHASE 1: TASTE PROFILING
+# -----------------
+@app.post("/api/v1/profile/train")
+def train_agent_history(payload: TrainPayload, uid: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    import requests
+    import models
+    import json
+    from fastapi.responses import StreamingResponse
+    from logic.llm_taste_profiler import synthesize_taste_profile
+    from sqlalchemy.orm.attributes import flag_modified
+    
+    user = db.query(models.User).filter(models.User.id == uid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+        
+    store = user.preferences.get("store_preference", "Tesco Live") if user.preferences else "Tesco Live"
+    
+    def event_stream():
+        try:
+            # 1. Ping Edge Node with stream=True
+            response = requests.post(
+                f"{EDGE_SCRAPER_URL}/api/v1/profile/scrape_history",
+                json={"store_name": store, "email": payload.email, "password": payload.password},
+                stream=True,
+                timeout=300
+            )
+            
+            history_raw_text = ""
+            for line in response.iter_lines():
+                if line:
+                    decoded_line = line.decode('utf-8')
+                    if decoded_line.startswith('data: '):
+                        data_str = decoded_line[6:]
+                        try:
+                            data_obj = json.loads(data_str)
+                        except json.JSONDecodeError:
+                            continue
+                            
+                        if data_obj.get('type') == 'log':
+                            yield f"data: {json.dumps(data_obj)}\n\n"
+                        elif data_obj.get('type') == 'error':
+                            yield f"data: {json.dumps(data_obj)}\n\n"
+                            return
+                        elif data_obj.get('type') == 'success':
+                            history_raw_text = data_obj.get('raw_text', "")
+                            yield f"data: {json.dumps({'type': 'log', 'message': '[Backend] Edge payload received. Synthesizing AI Taste Profile...'})}\n\n"
+                            break
+
+            if not history_raw_text or len(history_raw_text) < 20:
+                 yield f"data: {json.dumps({'type': 'error', 'message': 'No order history found.'})}\n\n"
+                 return
+                 
+            # 2. Synthesize with Gemini
+            taste_json = synthesize_taste_profile(history_raw_text)
+            if not taste_json:
+                 yield f"data: {json.dumps({'type': 'error', 'message': 'Gemini failed to synthesize taste profile.'})}\n\n"
+                 return
+                 
+            # 3. Store natively in DB
+            prefs = user.preferences or {}
+            prefs["taste_profile"] = taste_json
+            
+            user.preferences = prefs
+            flag_modified(user, "preferences")
+            db.commit()
+            
+            yield f"data: {json.dumps({'type': 'complete', 'taste_profile': taste_json})}\n\n"
+            
+        except Exception as e:
+            print(f"[Core] Error training agent: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+# train_continue removed as it is no longer required for headless pipelines
+
+# -----------------
+# PIPELINE PHASE 2: MEAL GENERATION
+# -----------------
+
+@app.post("/api/v1/ideate_cart")
+def ideate_meals(user_id: str, uid: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Triggers an asynchronous IDEATE mission inside BigQuery."""
+    import models
+    from logic.bigquery_client import ZeroCartBQ
+    if user_id != uid:
+        raise HTTPException(status_code=403, detail='Unauthorized')
+    user = db.query(models.User).filter(models.User.id == uid).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    ideation_result = ideate_weekly_plan(user=user)
+    # Wipe the previous cache state so polling doesn't falsely complete instantly
+    db.query(models.ProposedBasket).filter(models.ProposedBasket.user_id == uid).delete()
+    db.commit()
     
-    if ideation_result.get("status") != "success":
-        raise HTTPException(status_code=500, detail=f"Gemini failed: {ideation_result.get('message')}")
-        
-    return ideation_result.get("plan")
+    store = user.preferences.get("store_preference", "Tesco Live") if user.preferences else "Tesco Live"
+    
+    # Fire and Forget
+    bq = ZeroCartBQ()
+    mission_id = bq.shout_order("IDEATE", {"user_id": user_id, "target": store})
+    return {"status": "queued", "mission_id": mission_id}
+
+@app.get("/api/v1/ideate_status")
+def get_ideate_status(user_id: str, uid: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Async polling hook to pull localized SQLite schemas safely."""
+    import models
+    import json
+    
+    if user_id != uid:
+        raise HTTPException(status_code=403, detail='Unauthorized')
+    basket = db.query(models.ProposedBasket).filter(models.ProposedBasket.user_id == uid).first()
+    if not basket:
+        return {"status": "pending"}
+    
+    return {"status": "success", "plan": json.loads(basket.plan_json)}
 
 @app.post("/api/v1/ideate_single_meal")
-def ideate_single_day(day: str, user_id: int, db: Session = Depends(get_db)):
+def ideate_single_day(day: str, user_id: str, uid: str = Depends(get_current_user), db: Session = Depends(get_db)):
     """Generates a replacement meal ideation for a specific day."""
     from logic.llm_ideation import ideate_single_meal
     import models
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user_id != uid:
+        raise HTTPException(status_code=403, detail='Unauthorized')
+    user = db.query(models.User).filter(models.User.id == uid).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
@@ -171,94 +330,46 @@ def ideate_single_day(day: str, user_id: int, db: Session = Depends(get_db)):
 # -----------------
 
 class BuildCartPayload(BaseModel):
-    user_id: int
+    user_id: str
     store_name: str
     target_categories: list  # The abstract required_ingredients dicts list
 
 @app.post("/api/v1/build_cart")
-def build_cart(payload: BuildCartPayload, db: Session = Depends(get_db)):
-    """Dynamically hunts for prices and generates a math basket."""
-    from logic.llm_scraper import get_live_deals
+def build_cart(payload: BuildCartPayload, uid: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    if payload.user_id != uid:
+        raise HTTPException(status_code=403, detail='Unauthorized')
+    """Triggers a distributed SCRAPE loop that natively chains into a BUILD loop natively on the Grid."""
+    from logic.bigquery_client import ZeroCartBQ
     import models
     
     user = db.query(models.User).filter(models.User.id == payload.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    # 1. Scrape Exact Abstract Ideas
-    output = get_live_deals(target_categories=payload.target_categories)
-    if output.get("status") != "success":
-        raise HTTPException(status_code=500, detail="Failed to creatively hunt required items via Google Search.")
-        
-    deals = output.get("deals", [])
-    
-    # Wipe old "Tesco Live" local persistence
-    db.query(models.LocalDeal).filter(models.LocalDeal.store_name == payload.store_name).delete()
-    
-    # Inject active hunt explicitly
-    for deal_data in deals:
-        try:
-            # Our IDE scraped model actually returned classes or dicts depending on execution.
-            raw_price = deal_data.get("price") if isinstance(deal_data, dict) else deal_data.price
-            final_price = float(raw_price) if raw_price else 1.50
-            if final_price <= 0.01:
-                final_price = 1.25 # Global emergency fallback for staples
-
-            new_deal = models.LocalDeal(
-                store_name=payload.store_name,
-                sku=deal_data.get("sku") if isinstance(deal_data, dict) else deal_data.sku,
-                item_name=deal_data.get("item_name") if isinstance(deal_data, dict) else deal_data.item_name,
-                price=final_price,
-                price_per_unit=deal_data.get("price_per_unit") if isinstance(deal_data, dict) else getattr(deal_data, "price_per_unit", 1.0),
-                item_url=deal_data.get("url", "") if isinstance(deal_data, dict) else getattr(deal_data, "url", ""),
-                protein_grams=deal_data.get("protein_grams") if isinstance(deal_data, dict) else deal_data.protein_grams,
-                calories=deal_data.get("calories") if isinstance(deal_data, dict) else deal_data.calories
-            )
-            db.add(new_deal)
-        except Exception as e:
-            print(f"Error saving Target Deal: {e}")
+    # Wipe stale cart
+    db.query(models.FinalBasket).filter(models.FinalBasket.user_id == payload.user_id).delete()
     db.commit()
-    # 2. Run the LLM Basket Architect to apply human common-sense rationing
-    from logic.llm_basket_architect import allocate_basket
     
-    # We fetch the exact DB records just scraped so Gemini has absolute SKU/price truth
-    fresh_deals = db.query(models.LocalDeal).filter(models.LocalDeal.store_name == payload.store_name).all()
+    # Shout order into the cluster
+    bq = ZeroCartBQ()
+    bq_payload = {"user_id": user.id, "target": payload.store_name, "targets": payload.target_categories}
+    mission_id = bq.shout_order("SCRAPE", bq_payload)
     
-    architect_result = allocate_basket(user=user, scraped_deals=fresh_deals)
-    
-    if architect_result.get("status") != "success":
-        raise HTTPException(status_code=500, detail=f"Basket Architect failed: {architect_result.get('message')}")
-        
-    final_basket = []
-    total_cost = 0.0
-    total_protein = 0.0
-    
-    # Map the LLM's SKUs back to the DB to natively calculate real totals
-    for allocation in architect_result.get("allocations", []):
-        sku = allocation.get("sku")
-        qty = allocation.get("quantity", 1)
-        deal_obj = next((d for d in fresh_deals if d.sku == sku), None)
-        
-        if deal_obj and qty > 0:
-            final_basket.append({
-                "sku": deal_obj.sku,
-                "item_name": deal_obj.item_name,
-                "url": getattr(deal_obj, 'item_url', getattr(deal_obj, 'url', '')),
-                "quantity": qty,
-                "selected_price": round(qty * deal_obj.price, 2),
-                "logic": allocation.get("logic", "")
-            })
-            total_cost += qty * deal_obj.price
-            total_protein += qty * deal_obj.protein_grams
+    return {"status": "queued", "mission_id": mission_id}
 
-    return {
-        "basket_summary": {
-             "total_cost": round(total_cost, 2),
-             "total_protein_grams": round(total_protein, 2),
-             "budget_utilized": f"{round((total_cost/user.weekly_budget)*100, 1)}%" if user.weekly_budget else "N/A"
-        },
-        "basket_items": final_basket
-    }
+@app.get("/api/v1/cart_status")
+def get_cart_status(user_id: str, uid: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Async polling hook to pull FinalBasket out of localized SQLite securely."""
+    import models
+    import json
+    if user_id != uid:
+        raise HTTPException(status_code=403, detail='Unauthorized')
+    basket = db.query(models.FinalBasket).filter(models.FinalBasket.user_id == uid).first()
+    if not basket:
+        return {"status": "pending"}
+        
+    return {"status": "success", "cart_data": json.loads(basket.cart_json)}
+    
 
 @app.get("/api/v1/generate_meal_image")
 def get_meal_image(recipe_name: str):
@@ -273,18 +384,37 @@ def get_meal_image(recipe_name: str):
 # -----------------
 
 @app.post("/api/v1/cart/approve")
-def approve_cart(user_id: int):
+def approve_cart(user_id: str, uid: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user_id != uid:
+        raise HTTPException(status_code=403, detail='Unauthorized')
     """
     Called by the PWA. Approves the basket and fires the Playwright browser automation
     to autonomously navigate to Tesco/ASDA and purchase the items.
     """
-    print(f"User {user_id} approved the cart! Firing Edge Agent subprocess...")
+    import models
+    import json
+    
+    basket = db.query(models.FinalBasket).filter(models.FinalBasket.user_id == uid).first()
+    if not basket:
+        raise HTTPException(status_code=404, detail="Cart not found")
+        
+    cart_data = json.loads(basket.cart_json)
+    
+    # Save to local file for Node edge client to read natively
+    edge_client_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "edge-client")
+    os.makedirs(edge_client_dir, exist_ok=True)
+    
+    payload_path = os.path.join(edge_client_dir, "pending_inject.json")
+    with open(payload_path, "w", encoding="utf-8") as f:
+        json.dump(cart_data, f)
+        
+    print(f"User {uid} approved the cart! Payload dumped to {payload_path}. Firing Edge Agent subprocess...")
     
     try:
         # Fire the Edge Agent asynchronously
         subprocess.Popen(
-            ["node", "../../edge-client/cart_injector.js"],
-            cwd=os.path.abspath(os.path.dirname(__file__))
+            ["node", "cart_injector.js"],
+            cwd=edge_client_dir
         )
         return {"status": "success", "message": "Edge Agent launched. Check your Monzo app for payment approval."}
     except Exception as e:

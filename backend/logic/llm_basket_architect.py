@@ -38,8 +38,8 @@ def allocate_basket(user, scraped_deals: List[Dict]) -> dict:
         "You are ZeroCart's Basket Allocation Architect. "
         "Your job is to look at a list of exact products we scraped from Tesco, and decide EXACTLY how many of each we need to buy. "
         "Apply STRONGLY accurate human common-sense reasoning to volume. "
-        f"The user is cooking for a family of {user.family_size}. "
-        f"They are cooking {len(user.meal_types_wanted.split(',')) * 7} total meals this week. "
+        f"The user is cooking for a family of {user.preferences.get('family_size', 1)}. "
+        f"They are cooking {len(user.preferences.get('meal_types_wanted', 'Dinner').split(',')) * 7} total meals this week. "
         "CRITICAL RULES: \n"
         "1. Never buy 8 bottles of oil, or 8 blocks of butter to hit a 'calorie metric'. One unit of a pantry staple is usually enough for an entire week. \n"
         "2. Think about volume: a 1kg bag of rice is easily enough for 10-12 adult portions. Do not buy 5 bags of rice. \n"
@@ -67,7 +67,43 @@ def allocate_basket(user, scraped_deals: List[Dict]) -> dict:
             raw_text = raw_text.strip("```json").strip("```").strip()
             
         data = json.loads(raw_text)
-        return {"status": "success", "allocations": data.get("items", [])}
+        allocations = data.get("items", [])
+        basket_items = []
+        total_cost = 0.0
+        total_protein = 0.0
+        
+        for alloc in allocations:
+            target_sku = alloc.get("sku")
+            # find original deal
+            matched_deal = next((d for d in scraped_deals if d.sku == target_sku), None)
+            if matched_deal:
+                qty = alloc.get("quantity", 1)
+                cost = float(matched_deal.price) * qty
+                protein = float(matched_deal.protein_grams or 0.0) * qty
+                
+                total_cost += cost
+                total_protein += protein
+                
+                basket_items.append({
+                    "sku": matched_deal.sku,
+                    "item_name": matched_deal.item_name,
+                    "selected_price": cost,
+                    "unit_price": matched_deal.price,
+                    "url": getattr(matched_deal, "item_url", ""),
+                    "quantity": qty,
+                    "logic": alloc.get("logic", "")
+                })
+                
+        basket_summary = {
+            "total_cost": total_cost,
+            "total_protein_grams": total_protein
+        }
+
+        return {
+            "status": "success", 
+            "basket_summary": basket_summary,
+            "basket_items": basket_items
+        }
         
     except Exception as e:
         print(f"BASKET ARCHITECT FAILURE: {str(e)}")

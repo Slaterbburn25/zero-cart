@@ -1,4 +1,5 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, Date, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, Date, ForeignKey, JSON, DateTime
+from datetime import datetime
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # We'll use SQLite for development as agreed
@@ -15,24 +16,17 @@ Base = declarative_base()
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
-    weekly_budget = Column(Float, nullable=True) # None implies 'I dont care'
-    calorie_limit = Column(Integer, nullable=True) # None implies 'I dont care'
-    family_size = Column(Integer, default=1)
-    meal_types_wanted = Column(String, default="Dinner")
-    preferred_store = Column(String, default="Tesco Live")
-    dietary_constraints = Column(String, default="none")  # e.g., "vegan, high-protein"
-    primary_goal = Column(String, default="Balanced") # e.g. "Weight Loss", "Muscle Gain"
-    preferred_meats = Column(String, default="Any") # e.g. "Chicken, Fish", "None"
-    hated_foods = Column(String, default="none") # e.g. "Olives, Mushrooms"
+    postcode = Column(String, index=True, default="")
+    preferences = Column(JSON, default=dict)
     is_active = Column(Boolean, default=True)
 
 class VirtualFridge(Base):
     __tablename__ = "virtual_fridge"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(String, ForeignKey("users.id"))
     item_name = Column(String, index=True)
     category = Column(String)  # e.g., "protein", "veg", "dairy"
     quantity = Column(Float)
@@ -43,6 +37,7 @@ class LocalDeal(Base):
     __tablename__ = "local_deals"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, ForeignKey("users.id"), index=True)
     store_name = Column(String, index=True)  # e.g., "Tesco Blackburn"
     sku = Column(String, index=True)
     item_name = Column(String)
@@ -51,6 +46,29 @@ class LocalDeal(Base):
     item_url = Column(String, default="")
     protein_grams = Column(Float, default=0.0)  # Needed by Google OR-Tools
     calories = Column(Integer, default=0)
+
+class ProposedBasket(Base):
+    __tablename__ = "proposed_basket"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, ForeignKey("users.id"))
+    plan_json = Column(String)  # Complete JSON dump of BQ IDEATE payload
+
+class FinalBasket(Base):
+    __tablename__ = "final_basket"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, ForeignKey("users.id"))
+    cart_json = Column(String)  # JSON holding basket_summary and basket_items
+
+class PipelineLog(Base):
+    __tablename__ = "pipeline_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, ForeignKey("users.id"), index=True)
+    phase = Column(String, index=True)  # e.g., 'IDEATE' or 'SCRAPE'
+    message = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 # This physically creates the 'zerocart.db' file and the schema tables
 Base.metadata.create_all(bind=engine)

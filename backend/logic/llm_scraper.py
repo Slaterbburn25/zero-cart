@@ -5,9 +5,9 @@ from google.genai import types
 from pydantic import BaseModel, Field
 from typing import List
 
-def get_live_deals(target_categories: List[dict] = None) -> dict:
+def get_live_deals(target_categories: List[dict] = None, store_name: str = "Tesco Live") -> dict:
     """
-    Executes an LLM-Agentic web scrape targeting Tesco.com using Google Search.
+    Executes an LLM-Agentic web scrape targeting grocery stores via Local Edge Node.
     Instantly bypasses all Cloudflare bot-protections natively.
     Returns the deals found for the provided abstract target categories.
     """
@@ -22,10 +22,11 @@ def get_live_deals(target_categories: List[dict] = None) -> dict:
     import requests
     
     try:
+        EDGE_SCRAPER_URL = os.getenv("EDGE_SCRAPER_URL", "http://127.0.0.1:8001")
         response = requests.post(
-            "http://127.0.0.1:8001/api/v1/scrape_tesco",
-            json={"targets": target_categories},
-            timeout=180 # Playwright takes time to open UI and loop
+            f"{EDGE_SCRAPER_URL}/api/v1/scrape",
+            json={"targets": target_categories, "store_name": store_name},
+            timeout=600 # Playwright takes a lot of time to humanise large baskets
         )
         if response.status_code == 200:
             return response.json()
@@ -39,9 +40,9 @@ def get_live_deals(target_categories: List[dict] = None) -> dict:
         fallback_deals = []
         for cat in target_categories:
             fallback_deals.append({
-                "store_name": "Tesco Live",
+                "store_name": store_name,
                 "sku": "LIVE_FALLBACK_" + str(hash(cat['query']))[-5:],
-                "item_name": f"Tesco Agent Fallback: {cat['query']}",
+                "item_name": f"{store_name} Fallback: {cat['query']}",
                 "price": 1.50,
                 "price_per_unit": 2.00,
                 "url": "https://www.tesco.com",

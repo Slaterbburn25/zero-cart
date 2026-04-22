@@ -1,16 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg-color: #F8FAF9;
-  --surface-color: #FFFFFF;
-  --border-color: #E2E8E4;
-  --text-main: #1C2220;
-  --text-dim: #64746B;
-  --accent-base: #8B9D83; /* Pastel Sage */
-  --accent-light: #E8EDE6;
-  --success-color: #4CAF50;
-  --shadow-sm: 0 2px 4px rgba(0,0,0,0.03);
-  --shadow-md: 0 8px 16px rgba(0,0,0,0.05);
+  --bg-color: #0F1214;
+  --surface-color: #191E21;
+  --border-color: #262D31;
+  --text-main: #FFFFFF;
+  --text-dim: #94A3B8;
+  --accent-base: #22D3EE;  /* Cyan Neon */
+  --accent-light: rgba(34, 211, 238, 0.1);
+  --accent-glow: 0 0 20px rgba(34, 211, 238, 0.2);
+  --success-color: #10B981;
+  --shadow-sm: 0 4px 6px rgba(0,0,0,0.3);
+  --shadow-md: 0 10px 25px rgba(0,0,0,0.5);
+  
+  --font-display: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
 }
 
 * {
@@ -20,11 +24,12 @@
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   background-color: var(--bg-color);
   color: var(--text-main);
-  padding: 2rem 1rem;
+  padding: 1rem 0.5rem;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Clean, Flat Containers */
@@ -75,9 +80,9 @@ body {
 }
 
 .store-option.active {
-  background: white;
-  color: var(--text-main);
-  box-shadow: var(--shadow-sm);
+  background: var(--accent-base);
+  color: #0F1214;
+  box-shadow: var(--accent-glow);
 }
 
 /* Premium Buttons */
